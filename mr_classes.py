@@ -28,7 +28,6 @@ class Map(object):
 
 
 
-
 class Reduce(object):
 
     def __init__(self):
@@ -147,18 +146,33 @@ class SortReduce(Reduce):
             out += str(i)
         out_file.write(out)
 
-class hammingEncMap(Map):
+class ham(Map):
+
+    def partition(self,keys,nr):
+        job_for_reduces = {}
+        num_reducer = nr
+        num_map_result = len(keys)
+        for i in range(num_map_result):
+            hashkey = i % num_reducer
+            if hashkey in job_for_reduces:
+                job_for_reduces[hashkey][keys[i]] = self.table[keys[i]]
+            else:
+                job_for_reduces[hashkey] = {keys[i]: self.table[keys[i]]}
+
+        return job_for_reduces
+
+class hammingEncMap(ham):
 
     def map(self, k, v):
         enc = hamming.HammingEncoder()
         self.emit(k, enc.encode(v))
 
-class hammingDecMap(Map):
+class hammingDecMap(ham):
     def map(self, k, v):
         dec = hamming.HammingDecoder()
         self.emit(k, dec.decode(v))
 
-class hammingFixMap(Map):
+class hammingFixMap(ham):
     def map(self, k, v):
         fixer = hamming.HammingFixer()
         self.emit(k, fixer.fix(v))

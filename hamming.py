@@ -1,5 +1,3 @@
-import sys
-import string
 
 class Hamming(object):
     def get_hamming_code(self,binary_str):
