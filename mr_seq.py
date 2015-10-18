@@ -1,5 +1,6 @@
 import sys
 import mr_classes
+import input_split
 
 class Engine(object):
 
@@ -12,57 +13,10 @@ class Engine(object):
         self.output_base = output_base
 
     def create_map_instance(self,class_name):
-        if class_name == 'WordCount':
-            return mr_classes.WordCountMap()
-        elif class_name == "hammingEnc":
-            return mr_classes.hammingEncMap()
-        elif class_name == "hammingDec":
-            return mr_classes.hammingDecMap()
-        elif class_name == "hammingFix":
-            return mr_classes.hammingFixMap()
-        elif class_name == "Sort":
-            return mr_classes.SortMap()
+        pass
 
     def create_reduce_instance(self,class_name):
-        if class_name == 'WordCount':
-            return mr_classes.WordCountReduce()
-        elif class_name == 'Sort':
-            return mr_classes.SortReduce()
-        else:
-            return mr_classes.hammingReduce()
-
-    def adjust_offset(self,file_object,start,end):
-
-        newpos = start
-        file_object.seek(start,0)
-        while newpos < end and newpos < self.split_size-1 + start:
-            file_object.readline()
-            newpos = file_object.tell()
-        return newpos
-
-    def generate_split_info(self,file_object):
-
-        file_object.seek(0, 2)
-        end = file_object.tell()
-        split_map = {}
-        offset = 0
-        if self.class_name == "hammingEnc":
-            while offset < end:
-                split_map[offset] = self.split_size
-                offset = offset+ self.split_size
-        elif self.class_name == "hammingDec":
-            while (self.split_size *8)%12 != 0:
-                self.split_size = self.split_size + 1
-            while offset <end:
-                prev = offset
-                offset = self.adjust_offset(file_object, offset, end)
-                split_map[prev] = offset - prev
-        else:
-            while offset < end:
-                prev = offset
-                offset = self.adjust_offset(file_object, offset, end)
-                split_map[prev] = offset - prev
-        return split_map
+        pass
 
     def read_input(self,file_object,split_dict):
         input = []
@@ -72,49 +26,22 @@ class Engine(object):
             input.append(content)
         return input
 
-
     def execute(self):
-        # Map phase
-        mapper = self.create_map_instance(self.class_name)
-        file_object = open(self.input_file)
-        split_hashmap = self.generate_split_info(file_object)
-        input = self.read_input(file_object,split_hashmap)
-        for j, v in enumerate(input):
-                mapper.map(j, v)
-
-        # Sort intermediate keys
-        table = mapper.get_table()
-        keys = table.keys()
-        keys.sort()
-
-        #partion
-        job_for_reduces= mapper.partition(keys,self.num_reducer)
-
-        #Reduce phase
-        for i in range(len(job_for_reduces)):
-            reducer = self.create_reduce_instance(self.class_name)
-            # keys = job_for_reduces[i].keys()
-            # keys.sort()
-            # for k in keys:
-            #     reducer.reduce(k, job_for_reduces[i][k])
-            reducer.reduce(i,job_for_reduces[i])
-            self.result_list = reducer.get_result_list()
-
-            out_file = open(self.output_base+"_"+str(i),'w')
-            out = ''
-            if self.class_name == "WordCount":
-                out = str(self.result_list)
-            else:
-                for i in self.result_list:
-                    out += str(i)
-            out_file.write(out)
+        pass
 
 class WordCountEngine(Engine):
+
+    def create_map_instance(self,class_name):
+        return mr_classes.WordCountMap()
+
+    def create_reduce_instance(self,class_name):
+        return mr_classes.WordCountReduce()
+
     def execute(self):
+        split_hashmap = input_split.Split(self.input_file,self.split_size,self.class_name).generate_split_info()
         # Map phase
         mapper = self.create_map_instance(self.class_name)
         file_object = open(self.input_file)
-        split_hashmap = self.generate_split_info(file_object)
         input = self.read_input(file_object,split_hashmap)
         for j, v in enumerate(input):
                 mapper.map(j, v)
@@ -130,29 +57,25 @@ class WordCountEngine(Engine):
         #Reduce phase
         for i in range(len(job_for_reduces)):
             reducer = self.create_reduce_instance(self.class_name)
-            # keys = job_for_reduces[i].keys()
-            # keys.sort()
-            # for k in keys:
-            #     reducer.reduce(k, job_for_reduces[i][k])
-            reducer.reduce(i,job_for_reduces[i])
-            self.result_list = reducer.get_result_list()
-
-            out_file = open(self.output_base+"_"+str(i),'w')
-            out = ''
-            if self.class_name == "WordCount":
-                out = str(self.result_list)
-            else:
-                for i in self.result_list:
-                    out += str(i)
-            out_file.write(out)
+            keys = job_for_reduces[i].keys()
+            keys.sort()
+            for k in keys:
+                reducer.reduce(k, job_for_reduces[i][k])
+            reducer.write_result(self.output_base,i)
 
 class SortEngine(Engine):
 
+    def create_map_instance(self,class_name):
+        return mr_classes.SortMap()
+
+    def create_reduce_instance(self,class_name):
+        return mr_classes.SortReduce()
+
     def execute(self):
+        split_hashmap = input_split.Split(self.input_file,self.split_size,self.class_name).generate_split_info()
         # Map phase
         mapper = self.create_map_instance(self.class_name)
         file_object = open(self.input_file)
-        split_hashmap = self.generate_split_info(file_object)
         input = self.read_input(file_object,split_hashmap)
         for j, v in enumerate(input):
                 mapper.map(j, v)
@@ -172,11 +95,23 @@ class SortEngine(Engine):
             reducer.write_result(self.output_base,i)
 
 class HammingEngine(Engine):
+
+    def create_map_instance(self,class_name):
+        if class_name == "hammingEnc":
+            return mr_classes.hammingEncMap()
+        elif class_name == "hammingDec":
+            return mr_classes.hammingDecMap()
+        elif class_name == "hammingFix":
+            return mr_classes.hammingFixMap()
+
+    def create_reduce_instance(self,class_name):
+        return mr_classes.hammingReduce()
+
     def execute(self):
+        split_hashmap = input_split.Split(self.input_file,self.split_size,self.class_name).generate_split_info()
         # Map phase
         mapper = self.create_map_instance(self.class_name)
         file_object = open(self.input_file)
-        split_hashmap = self.generate_split_info(file_object)
         input = self.read_input(file_object,split_hashmap)
         for j, v in enumerate(input):
                 mapper.map(j, v)
@@ -192,21 +127,12 @@ class HammingEngine(Engine):
         #Reduce phase
         for i in range(len(job_for_reduces)):
             reducer = self.create_reduce_instance(self.class_name)
-            # keys = job_for_reduces[i].keys()
-            # keys.sort()
-            # for k in keys:
-            #     reducer.reduce(k, job_for_reduces[i][k])
-            reducer.reduce(i,job_for_reduces[i])
-            self.result_list = reducer.get_result_list()
+            keys = job_for_reduces[i].keys()
+            keys.sort()
+            for k in keys:
+                reducer.reduce(k, job_for_reduces[i][k])
+            reducer.write_result(self.output_base,i)
 
-            out_file = open(self.output_base+"_"+str(i),'w')
-            out = ''
-            if self.class_name == "WordCount":
-                out = str(self.result_list)
-            else:
-                for i in self.result_list:
-                    out += str(i)
-            out_file.write(out)
 
 if __name__ == '__main__':
     class_name = sys.argv[1]
