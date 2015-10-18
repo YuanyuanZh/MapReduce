@@ -1,0 +1,3 @@
+I am a bit confused regarding data structure in python simple list probably since I cannot identify the
+type of data I am failing to sort it words that start with an uppercase letter get preference over those
+starting with a lowercase letter

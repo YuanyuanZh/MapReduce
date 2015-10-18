@@ -20,10 +20,14 @@ class Engine(object):
             return mr_classes.hammingDecMap()
         elif class_name == "hammingFix":
             return mr_classes.hammingFixMap()
+        elif class_name == "Sort":
+            return mr_classes.SortMap()
 
     def create_reduce_instance(self,class_name):
         if class_name == 'WordCount':
             return mr_classes.WordCountReduce()
+        elif class_name == 'Sort':
+            return mr_classes.SortReduce()
         else:
             return mr_classes.hammingReduce()
 
@@ -68,18 +72,6 @@ class Engine(object):
             input.append(content)
         return input
 
-    def partion(self, keys, table):
-        job_for_reduces = {}
-        num_reducer = self.num_reducer
-        num_map_result = len(keys)
-        for i in range(num_map_result):
-            hashkey = i % num_reducer
-            if hashkey in job_for_reduces:
-                job_for_reduces[hashkey][keys[i]] = table[keys[i]]
-            else:
-                job_for_reduces[hashkey] = {keys[i]: table[keys[i]]}
-
-        return job_for_reduces
 
     def execute(self):
         # Map phase
@@ -96,15 +88,115 @@ class Engine(object):
         keys.sort()
 
         #partion
-        job_for_reduces= self.partion(keys, table)
+        job_for_reduces= mapper.partition(keys,self.num_reducer)
 
         #Reduce phase
         for i in range(len(job_for_reduces)):
             reducer = self.create_reduce_instance(self.class_name)
-            keys = job_for_reduces[i].keys()
-            keys.sort()
-            for k in keys:
-                reducer.reduce(k, job_for_reduces[i][k])
+            # keys = job_for_reduces[i].keys()
+            # keys.sort()
+            # for k in keys:
+            #     reducer.reduce(k, job_for_reduces[i][k])
+            reducer.reduce(i,job_for_reduces[i])
+            self.result_list = reducer.get_result_list()
+
+            out_file = open(self.output_base+"_"+str(i),'w')
+            out = ''
+            if self.class_name == "WordCount":
+                out = str(self.result_list)
+            else:
+                for i in self.result_list:
+                    out += str(i)
+            out_file.write(out)
+
+class WordCountEngine(Engine):
+    def execute(self):
+        # Map phase
+        mapper = self.create_map_instance(self.class_name)
+        file_object = open(self.input_file)
+        split_hashmap = self.generate_split_info(file_object)
+        input = self.read_input(file_object,split_hashmap)
+        for j, v in enumerate(input):
+                mapper.map(j, v)
+
+        # Sort intermediate keys
+        table = mapper.get_table()
+        keys = table.keys()
+        keys.sort()
+
+        #partion
+        job_for_reduces= mapper.partition(keys,self.num_reducer)
+
+        #Reduce phase
+        for i in range(len(job_for_reduces)):
+            reducer = self.create_reduce_instance(self.class_name)
+            # keys = job_for_reduces[i].keys()
+            # keys.sort()
+            # for k in keys:
+            #     reducer.reduce(k, job_for_reduces[i][k])
+            reducer.reduce(i,job_for_reduces[i])
+            self.result_list = reducer.get_result_list()
+
+            out_file = open(self.output_base+"_"+str(i),'w')
+            out = ''
+            if self.class_name == "WordCount":
+                out = str(self.result_list)
+            else:
+                for i in self.result_list:
+                    out += str(i)
+            out_file.write(out)
+
+class SortEngine(Engine):
+
+    def execute(self):
+        # Map phase
+        mapper = self.create_map_instance(self.class_name)
+        file_object = open(self.input_file)
+        split_hashmap = self.generate_split_info(file_object)
+        input = self.read_input(file_object,split_hashmap)
+        for j, v in enumerate(input):
+                mapper.map(j, v)
+
+        # Sort intermediate keys
+        table = mapper.get_table()
+        keys = table.keys()
+        keys.sort()
+
+        #partion
+        job_for_reduces= mapper.partition(keys,self.num_reducer)
+
+        #Reduce phase
+        for i in range(len(job_for_reduces)):
+            reducer = self.create_reduce_instance(self.class_name)
+            reducer.reduce(i,job_for_reduces[i])
+            reducer.write_result(self.output_base,i)
+
+class HammingEngine(Engine):
+    def execute(self):
+        # Map phase
+        mapper = self.create_map_instance(self.class_name)
+        file_object = open(self.input_file)
+        split_hashmap = self.generate_split_info(file_object)
+        input = self.read_input(file_object,split_hashmap)
+        for j, v in enumerate(input):
+                mapper.map(j, v)
+
+        # Sort intermediate keys
+        table = mapper.get_table()
+        keys = table.keys()
+        keys.sort()
+
+        #partion
+        job_for_reduces= mapper.partition(keys,self.num_reducer)
+
+        #Reduce phase
+        for i in range(len(job_for_reduces)):
+            reducer = self.create_reduce_instance(self.class_name)
+            # keys = job_for_reduces[i].keys()
+            # keys.sort()
+            # for k in keys:
+            #     reducer.reduce(k, job_for_reduces[i][k])
+            reducer.reduce(i,job_for_reduces[i])
             self.result_list = reducer.get_result_list()
 
             out_file = open(self.output_base+"_"+str(i),'w')
@@ -122,5 +214,11 @@ if __name__ == '__main__':
     num_reducer = sys.argv[3]
     in_filename = sys.argv[4]
     output_base = sys.argv[5]
-    engine = Engine(in_filename, split_size,class_name, num_reducer, output_base)
+
+    if class_name == 'WordCount':
+        engine = WordCountEngine(in_filename, split_size,class_name, num_reducer, output_base)
+    elif class_name == 'Sort':
+        engine = SortEngine(in_filename, split_size,class_name, num_reducer, output_base)
+    else:
+        engine = HammingEngine(in_filename, split_size,class_name, num_reducer, output_base)
     engine.execute()
