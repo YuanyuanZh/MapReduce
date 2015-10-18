@@ -13,7 +13,7 @@ class Worker():
             self.worker_address = worker_address
             self.is_remote = True
 
-    def mapper(self):
+    def mapper(self, task):
         print('running in mapper')
         gevent.sleep(0)
         print('Explicit context switch to mapper again')
@@ -47,6 +47,12 @@ class Worker():
         client = zerorpc.Client()
         client.connect(self.master_address)
         id = client.registerWorker(self.worker_address)
+
+    def startMap(self,task):
+        gevent.spawn(self.mapper(task))
+
+    def startReduce(self,task):
+        gevent.spawn(self.reducer(task))
 
     def run(self):
         self.register()
