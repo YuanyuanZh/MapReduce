@@ -3,9 +3,9 @@ from json import dumps
 
 class Map(object):
 
-    def __init__(self,split_order):
+    def __init__(self,split_id):
         self.table = {}
-        self.split_order = split_order
+        self.split_id = split_id
 
     def map(self, k, v):
         pass
@@ -22,8 +22,8 @@ class Map(object):
     def partition(self,keys,nr):
         pass
 
-    def get_split_order(self):
-        return self.split_order
+    def get_split_id(self):
+        return self.split_id
 
 
 class Reduce(object):
@@ -31,9 +31,6 @@ class Reduce(object):
     def __init__(self):
         self.result_list = {}
         self.output_order = None
-
-    def reduce(self,pm_order, k, vlist):
-       pass
 
     def emit(self, pm_order,v):
         if pm_order in self.result_list:
@@ -47,6 +44,12 @@ class Reduce(object):
     def set_output_oder(self,pm_num):
         self.output_order = pm_num
 
+    def write_Jason_result(self,output_base):
+        rst = self.get_result_list()
+        out_file_name = output_base+"_"+"Jason"+"_"+str(self.output_order)
+        with open(out_file_name, "w") as file:
+            dumps(rst, file, indent=4)
+        file.close()
 
 class WordCountMap(Map):
 
@@ -55,11 +58,11 @@ class WordCountMap(Map):
         for w in words:
             self.emit(w, '1')
 
-    def partition(self, keys,nr,split_order):
+    def partition(self, keys,nr):
         job_for_reduces = {}
         pos = []
         alphabet = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']
-       # nr = self.num_reducer
+        split_order = int(self.get_split_id())
         div_unit = len(alphabet)/nr
         while div_unit <= 26:
             pos.append(div_unit-1)
@@ -84,13 +87,6 @@ class WordCountReduce(Reduce):
             count = count + int(v)
         self.emit(pm_order,k + ':' + str(count))
 
-    def write_Jason_result(self,output_base):
-        rst = self.get_result_list()
-        out_file_name = output_base+"_"+"Jason"+"_"+str(self.output_order)
-        with open(out_file_name, "w") as file:
-            dumps(rst, file, indent=4)
-        file.close()
-
     def write_txt_result(self,output_base):
         rst = self.get_result_list()
         out_file = open(output_base+"_"+str(self.output_order),'w')
@@ -99,6 +95,7 @@ class WordCountReduce(Reduce):
         out_file.close()
 
 class SortMap(Map):
+
     def map(self, k, v):
         words = v.split()
         words_list = []
@@ -112,7 +109,7 @@ class SortMap(Map):
         job_for_reduces = {}
         pos = []
         alphabet = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']
-        # nr = self.num_reducer
+        split_id = int(self.get_split_id())
         div_unit = len(alphabet)/nr
         while div_unit <= 26:
             pos.append(div_unit-1)
@@ -123,52 +120,54 @@ class SortMap(Map):
                 w = i
                 for j in range(len(pos)):
                     if (w[0]).lower() < alphabet[pos[j]]:
-                        if j in job_for_reduces:
-                            (job_for_reduces[j]).append(w)
+                        if split_id*10+j in job_for_reduces:
+                            job_for_reduces[split_id*10+j].append(w)
                             break
                         else:
-                            job_for_reduces[j] = [w]
+                            job_for_reduces[split_id*10+j] = [w]
                             break
-            #key_str = keys[i]
-            # for j in range(len(pos)):
-            #     if (key_str[0]).lower() < alphabet[pos[j]]:
-            #         if j in job_for_reduces:
-            #             job_for_reduces[j][keys[i]] = self.table[keys[i]]
-            #             break
-            #         else:
-            #             job_for_reduces[j] = {keys[i]: self.table[keys[i]]}
-            #             break
         return job_for_reduces
 
 class SortReduce(Reduce):
 
-    def collectMapResult(self):
-        pass
-
     def reduce(self, k, vlist):
         vlist.sort()
-        self.emit(vlist)
+        self.emit(k,vlist)
 
-    def write_result(self,output_base,reduce_serial):
+    def write_result(self,output_base):
+        reduce_serial = self.output_order
         rst = self.get_result_list()
         out_file = open(output_base+"_"+str(reduce_serial),'w')
         out = ''
-        for i in rst:
+        for i in rst.values():
             out += str(i)
         out_file.write(out)
+
+    def write_txt_result(self,output_base):
+        rst = self.get_result_list()
+        out_file = open(output_base+"_"+str(self.output_order),'w')
+        out = rst.values()
+        out_file.write(str(out))
+        out_file.close()
 
 class ham(Map):
 
     def partition(self,keys,nr):
         job_for_reduces = {}
         num_reducer = nr
-        num_map_result = len(keys)
-        for i in range(num_map_result):
-            hashkey = i % num_reducer
-            if hashkey in job_for_reduces:
-                job_for_reduces[hashkey][keys[i]] = self.table[keys[i]]
+        value_list = self.table.get(keys[0])[0]
+        start = 0
+        count = 0
+        l = len(value_list)
+        div_unit = len(value_list)/num_reducer
+        while start < len(value_list):
+            if count < num_reducer-1:
+                end = start + div_unit
             else:
-                job_for_reduces[hashkey] = {keys[i]: self.table[keys[i]]}
+                end = len(value_list)
+            job_for_reduces[self.split_id*10+count] = value_list[start:end]
+            start = end
+            count = count + 1
 
         return job_for_reduces
 
@@ -191,13 +190,9 @@ class hammingFixMap(ham):
 class hammingReduce(Reduce):
 
     def reduce(self, k, vlist):
-        for v in vlist:
-            self.emit(v)
+        self.emit(k,vlist)
 
-    def write_result(self,output_base,reduce_serial):
+    def write_text_result(self,output_base):
         rst = self.get_result_list()
-        out_file = open(output_base+"_"+str(reduce_serial),'w')
-        out = ''
-        for i in rst:
-            out += str(i)
-        out_file.write(out)
+        out_file = open(output_base+"_"+str(self.output_order),'w')
+        out_file.write(str(rst))
