@@ -148,3 +148,4 @@ if __name__ == '__main__':
     else:
         engine = HammingEngine(in_filename, split_size,class_name, num_reducer, output_base)
     engine.execute()
+    

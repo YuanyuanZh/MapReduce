@@ -1,9 +1,11 @@
 import hamming
+from json import dumps
 
 class Map(object):
 
-    def __init__(self):
+    def __init__(self,split_order):
         self.table = {}
+        self.split_order = split_order
 
     def map(self, k, v):
         pass
@@ -20,30 +22,31 @@ class Map(object):
     def partition(self,keys,nr):
         pass
 
-    def write_out(self,keys,table):
-        rst = []
-        for k in keys:
-            rst.append(table[k])
-        out = ''
-
+    def get_split_order(self):
+        return self.split_order
 
 
 class Reduce(object):
 
     def __init__(self):
-        self.result_list = []
+        self.result_list = {}
+        self.output_order = None
 
-    def reduce(self, k, vlist):
+    def reduce(self,pm_order, k, vlist):
        pass
 
-    def emit(self, v):
-        self.result_list.append(v)
+    def emit(self, pm_order,v):
+        if pm_order in self.result_list:
+            self.result_list[pm_order].append(v)
+        else:
+            self.result_list[pm_order] = [v]
 
     def get_result_list(self):
         return self.result_list
 
-    def write_result(self,output_base,reduce_serial):
-        pass
+    def set_output_oder(self,pm_num):
+        self.output_order = pm_num
+
 
 class WordCountMap(Map):
 
@@ -52,7 +55,7 @@ class WordCountMap(Map):
         for w in words:
             self.emit(w, '1')
 
-    def partition(self, keys,nr):
+    def partition(self, keys,nr,split_order):
         job_for_reduces = {}
         pos = []
         alphabet = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']
@@ -65,27 +68,35 @@ class WordCountMap(Map):
             key_str = keys[i]
             for j in range(len(pos)):
                 if (key_str[0]).lower() < alphabet[pos[j]]:
-                    if j in job_for_reduces:
-                        job_for_reduces[j][keys[i]] = self.table[keys[i]]
+                    if split_order*10+j in job_for_reduces:
+                        job_for_reduces[split_order*10+j][keys[i]] = self.table[keys[i]]
                         break
                     else:
-                        job_for_reduces[j] = {keys[i]: self.table[keys[i]]}
+                        job_for_reduces[split_order*10+j] = {keys[i]: self.table[keys[i]]}
                         break
         return job_for_reduces
 
 class WordCountReduce(Reduce):
 
-    def reduce(self, k, vlist):
+    def reduce(self, pm_order,k, vlist):
         count = 0
         for v in vlist:
             count = count + int(v)
-        self.emit(k + ':' + str(count))
+        self.emit(pm_order,k + ':' + str(count))
 
-    def write_result(self,output_base,reduce_serial):
+    def write_Jason_result(self,output_base):
         rst = self.get_result_list()
-        out_file = open(output_base+"_"+str(reduce_serial),'w')
-        out = str(rst)
-        out_file.write(out)
+        out_file_name = output_base+"_"+"Jason"+"_"+str(self.output_order)
+        with open(out_file_name, "w") as file:
+            dumps(rst, file, indent=4)
+        file.close()
+
+    def write_txt_result(self,output_base):
+        rst = self.get_result_list()
+        out_file = open(output_base+"_"+str(self.output_order),'w')
+        out = rst.values()
+        out_file.write(str(out))
+        out_file.close()
 
 class SortMap(Map):
     def map(self, k, v):
