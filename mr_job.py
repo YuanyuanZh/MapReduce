@@ -1,6 +1,7 @@
 import zerorpc
 import sys
 import os
+import input_split
 
 class JobClient(object):
     def __init__(self, classname,split_size,num_redurcers,infile,outfile):
@@ -11,8 +12,8 @@ class JobClient(object):
         self.outfile = outfile
 
     def splitInput(self):
-        splits={}
-        return splits
+        split_hashmap = input_split.Split(self.infile,self.split_size,self.classname).generate_split_info()
+        return split_hashmap
 
     def submitJobInternal(self):
         jobClient = zerorpc.Client()
