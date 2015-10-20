@@ -11,13 +11,16 @@ class Engine(object):
         pass
 
     def read_input(self,file_object,split_dict):
+
+        offset = split_dict.keys()[0]
+        size = split_dict.get(offset)
+        file_object.seek(offset)
         input = []
-        values = split_dict.values()
-        for v in values:
-            for offset in v.keys():
-                file_object.seek(offset)
-                content = file_object.read(v[offset])
-                input.append(content)
+        pos = file_object.tell()
+        while pos < offset+size:
+            line = file_object.readline()
+            input.append(line)
+            pos = file_object.tell()
         return input
 
 
@@ -42,7 +45,7 @@ class WordCountEngine(Engine):
         keys.sort()
 
         #partion
-        job_for_reduces= mapper.partition(keys,self.num_reducer,mapper.get_split_id())
+        job_for_reduces= mapper.partition(keys,self.num_reducer)
 
     def WordCountReduceExecute(self,job_list):
 
@@ -59,24 +62,31 @@ class WordCountEngine(Engine):
 
 class HammingEngine(Engine):
 
-    def create_map_instance(self,class_name,split_order):
+    def create_map_instance(self,class_name,split_id):
         if class_name == "hammingEnc":
-            return mr_classes.hammingEncMap(split_order)
+            return mr_classes.hammingEncMap(split_id)
         elif class_name == "hammingDec":
-            return mr_classes.hammingDecMap(split_order)
+            return mr_classes.hammingDecMap(split_id)
         elif class_name == "hammingFix":
-            return mr_classes.hammingFixMap(split_order)
+            return mr_classes.hammingFixMap(split_id)
 
-    def create_reduce_instance(self,split_order):
+    def create_reduce_instance(self):
         return mr_classes.hammingReduce()
+
+    def read_input(self,file_object,split_dict):
+        offset = split_dict.keys()[0]
+        size = split_dict.get(offset)
+        file_object.seek(offset)
+        input = file_object.read(size)
+        print input
+        return input
 
     def HammingMapExecute(self,assigned_split):#assigned split means the {offset:size} info
         # Map phase
         mapper = self.create_map_instance(class_name,split_id)
         file_object = open(self.input_file)
         input = self.read_input(file_object,assigned_split)
-        for j, v in enumerate(input):
-                mapper.map(j, v)
+        mapper.map(mapper.get_split_id(), input)
 
         # Sort intermediate keys
         table = mapper.get_table()
@@ -86,7 +96,9 @@ class HammingEngine(Engine):
         #partion
         job_for_reduces= mapper.partition(keys,self.num_reducer)
 
+    def HammingReduceExecute(self,job_list):
         #Reduce phase
+        job_for_reduces = self.collect_jobs(job_list) # collect must contain {split_id : task}
         keys = job_for_reduces.keys()
         reducer = self.create_reduce_instance()
         reducer.set_output_oder(keys[0]%10) #todo change to partionID
@@ -97,14 +109,14 @@ class HammingEngine(Engine):
 
 class SortEngine(Engine):
 
-    def create_map_instance(self):
-        return mr_classes.SortMap()
+    def create_map_instance(self,split_id):
+        return mr_classes.SortMap(split_id)
 
     def create_reduce_instance(self):
         return mr_classes.SortReduce()
 
     def SortMapExecute(self,assigned_split):
-        mapper = self.create_map_instance()
+        mapper = self.create_map_instance(split_id)
         file_object = open(self.input_file)
         input = self.read_input(file_object,assigned_split)
         for j, v in enumerate(input):
