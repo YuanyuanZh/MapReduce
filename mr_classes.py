@@ -1,5 +1,5 @@
 import hamming
-from json import dumps
+import json
 
 class Map(object):
 
@@ -45,9 +45,14 @@ class Reduce(object):
 
     def write_Jason_result(self,output_base):
         rst = self.get_result_list()
-        out_file_name = output_base+"_"+"Jason"+"_"+str(self.output_order)
+        out_put_key = rst.keys()[0]
+        out_put = {out_put_key:[]}
+        for key in rst.keys():
+            out_put[out_put_key] += rst.get(key)
+        out_put[out_put_key].sort()
+        out_file_name = output_base+"_"+"_"+str(self.output_order)+".json"
         with open(out_file_name, "w") as file:
-            dumps(rst, file, indent=4)
+            json.dump(out_put, file,indent=4,sort_keys= True)
         file.close()
 
 class WordCountMap(Map):
@@ -63,7 +68,7 @@ class WordCountMap(Map):
         split_id = int(self.get_split_id())
         c = 0
         while c < nums_reducer:
-            index = str(split_id)+str(c)
+            index = str(c)+str(split_id)
             job_for_reduces[index] = {}
             c = c + 1
         div_unit = len(alphabet)/nums_reducer
@@ -82,7 +87,7 @@ class WordCountMap(Map):
             key_str = keys[i]
             for j in range(len(pos)):
                 if (key_str[0]).lower() < alphabet[pos[j]]:
-                    index = str(split_id)+str(j)
+                    index = str(j)+str(split_id)
                     job_for_reduces[index][keys[i]] = self.table[keys[i]]
                     break
         return job_for_reduces
@@ -93,13 +98,12 @@ class WordCountReduce(Reduce):
         count = 0
         for v in vlist:
             count = count + int(v)
-        self.emit(pm_order,k + ':' + str(count))
+        self.emit(pm_order,k + ':' + str(count)+'\n')
 
     def write_txt_result(self,output_base):
         rst = self.get_result_list()
         out_file = open(output_base+"_"+str(self.output_order),'w')
-        out = rst.values()
-        out_file.write(str(out))
+        out_file.write(str(rst))
         out_file.close()
 
 class SortMap(Map):
@@ -108,7 +112,7 @@ class SortMap(Map):
         words = v.split()
         words_list = []
         for w in words:
-            words_list.append(w)
+            words_list.append(w+'\n')
         words_list.sort()
         for s in words_list:
             self.emit(k, s)
@@ -119,7 +123,7 @@ class SortMap(Map):
         split_id = int(self.get_split_id())
         c = 0
         while c < nums_reducer:
-            index = str(split_id)+str(c)
+            index = str(c)+str(split_id)
             job_for_reduces[index] = []
             c = c + 1
         div_unit = len(alphabet)/nums_reducer
@@ -141,7 +145,7 @@ class SortMap(Map):
                 w = i
                 for j in range(len(pos)):
                     if (w[0]).lower() < alphabet[pos[j]]:
-                        index = str(split_id)+str(j)
+                        index = str(j)+str(split_id)
                         job_for_reduces[index].append(w)
                         break
         return job_for_reduces
@@ -151,6 +155,9 @@ class SortReduce(Reduce):
     def reduce(self, k, vlist):
         vlist.sort()
         self.emit(k,vlist)
+
+    def emit(self, pm_order,v):
+        self.result_list[pm_order] = v
 
     def write_result(self,output_base):
         reduce_serial = self.output_order
@@ -164,8 +171,7 @@ class SortReduce(Reduce):
     def write_txt_result(self,output_base):
         rst = self.get_result_list()
         out_file = open(output_base+"_"+str(self.output_order),'w')
-        out = rst.values()
-        out_file.write(str(out))
+        out_file.write(str(rst))
         out_file.close()
 
 class ham(Map):
@@ -209,6 +215,13 @@ class hammingReduce(Reduce):
 
     def reduce(self, k, vlist):
         self.emit(k,vlist)
+
+    def write_Jason_result(self,output_base):
+        rst = self.get_result_list()
+        out_file_name = output_base+"_"+str(self.output_order)+".json"
+        with open(out_file_name, "w") as file:
+            json.dump(rst, file,indent=4,sort_keys= True)
+        file.close()
 
     def write_txt_result(self,output_base):
         rst = self.get_result_list()
