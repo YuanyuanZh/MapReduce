@@ -1,16 +1,18 @@
 import zerorpc
 import gevent
 import socket
-import mr_master
+
 import mr_classes
 import input_split
 import sys
+from mr_data import *
 
 
 class Worker():
     def __init__(self, master_address, worker_address=None):
+        self.id = None
         self.master_address = master_address
-        if (worker_address == None):
+        if (worker_address is None):
             self.worker_address = self.getMyAddress()
             self.is_remote = False
         else:
@@ -18,13 +20,16 @@ class Worker():
             self.is_remote = True
         self.all_map_task_list = {}
         self.all_reduce_task_list = {}
+        self.current_mapper = None
+        self.current_reducer = None
 
     def mapper(self, map_task):
         task = map_task
+        self.current_mapper = task
         # No this job, create it
         if self.all_map_task_list.has_key(task.job_id) == False:
             map_list = {}
-            map_list[task.split_id]=task
+            map_list[task.split_id] = task
             self.all_map_task_list[task.job_id] = map_list
         else:
             self.all_map_task_list[task.job_id][task.split_id] = task
@@ -64,26 +69,27 @@ class Worker():
         # partion
         partitions = mapper.partition(keys, task.num_reducers)
         task.partitions = partitions
-        task.state = 'Finish'
+        task.state = 'FINISH'
         task.progress = 'Finish mapping.'
+        task.stateChange = True
 
     def collectAllInputsForReducer(self, task):
-        #get all input from other workers
+        # get all input from other workers
         while True:
             client1 = zerorpc.Client()
             client1.connect(self.master_address)
-            #get input locations from master
+            # get input locations from master
             locations = client1.getMapResultLocation(task.job_id)
-            for split_id,worker in locations.items():
-                #if didn't has that input, get input from mapper; else ignore;
+            for split_id, worker in locations.items():
+                # if didn't has that input, get input from mapper; else ignore;
                 if task.partitions.has_key(split_id) == False:
                     client = zerorpc.Client()
                     client.connect(worker['address'])
-                    partition = client.getPartition(task.job_id,split_id,task.partition_id)
-                    if partition != None:
+                    partition = client.getPartition(task.job_id, split_id, task.partition_id)
+                    if partition is not None:
                         task.partitions[split_id] = partition
                     else:
-                        print "Get partition from worker %s failed" %worker['address']
+                        print "Get partition from worker %s failed" % worker['address']
             # Get all inputs
             if len(task.partitions) == task.num_mappers:
                 break
@@ -91,10 +97,11 @@ class Worker():
 
     def reducer(self, reduce_task):
         task = reduce_task
+        self.current_reducer = task
         # No this job, create it
         if self.all_reduce_task_list.has_key(task.job_id) == False:
             reduce_list = {}
-            reduce_list[task.partition_id]=task
+            reduce_list[task.partition_id] = task
             self.all_reduce_task_list[task.job_id] = reduce_list
         else:
             self.all_reduce_task_list[task.job_id][task.partition_id] = task
@@ -109,15 +116,14 @@ class Worker():
         if task.className == 'hammingFix':
             reducer = mr_classes.hammingFixReduce()
         job_for_reduces = self.collectAllInputsForReducer(task)
-        reducer.set_output_oder((job_for_reduces.keys()[0])%10) # todo change (job_for_reduces.keys()[0]) to 编号
+        reducer.set_output_oder((job_for_reduces.keys()[0]) % 10)  # todo change (job_for_reduces.keys()[0]) to 编号
         for i in job_for_reduces.keys():
             keys = job_for_reduces[i].keys()
             keys.sort()
             for k in keys:
-                reducer.reduce(i,k,job_for_reduces.get(i)[k])
+                reducer.reduce(i, k, job_for_reduces.get(i)[k])
         reducer.write_Jason_result(self.output_base)
         reducer.write_txt_result(self.output_base)
-
 
     def getMyAddress(self):
         try:
@@ -129,13 +135,14 @@ class Worker():
         except socket.error:
             return "127.0.0.1"
 
-
-    def getPartition(self,job_id,split_id,partition_id):
+    def getPartition(self, job_id, split_id, partition_id):
         if self.all_map_task_list.has_key(job_id):
             if self.all_map_task_list[job_id].has_key(split_id):
                 return self.all_map_task_list[job_id][split_id][partition_id]
         return None
 
+    def getReducerResult(self,partition_id,outfile):
+        return None
 
     def startRPCServer(self):
         master = zerorpc.Server(self)
@@ -147,26 +154,44 @@ class Worker():
         master.bind(addr)
         master.run()
 
-
     def register(self):
-        self.id = self.client.registerWorker(self.worker_address)
         client = zerorpc.Client()
         client.connect(self.master_address)
+        self.id = self.client.registerWorker(self.worker_address)
 
-
-    def startMap(self,task):
+    def startMap(self, task):
         thread = gevent.spawn(self.mapper(task))
-        if(thread):
+        if (thread):
             return 0
-
 
     def startReduce(self, task):
         gevent.spawn(self.reducer(task))
 
+    def heartbeat(self):
+        while True:
+            if self.current_mapper is not None:
+                status_mapper = MapperStatus(self.current_mapper.job_id, self.current_mapper.split_id,
+                                             self.current_mapper.task_id, self.current_mapper.state,
+                                             self.current_mapper.progress,self.current_mapper.stateChange)
+            else:
+                status_mapper = None
+            if self.current_reducer is not None:
+                status_reducer = ReducerStatus(self.current_reducer.job_id, self.current_reducer.partition_id,
+                                               self.current_reducer.task_id, self.current_reducer.state,
+                                               self.current_reducer.progress, self.current_reducer.stateChange)
+            else:
+                status_reducer = None
+            status = WorkerStatus(self.id, self.worker_address, "RUNNING", status_mapper, status_reducer)
+            client = zerorpc.Client()
+            client.connect(self.master_address)
+            ret = client.updateWorkerStatus(status)
+            gevent.sleep(5)
 
     def run(self):
         self.register()
         self.startRPCServer()
+        gevent.spawn(self.heartbeat())
+
 
 if __name__ == '__main__':
     master_address = sys.argv[1]

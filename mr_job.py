@@ -2,9 +2,11 @@ import zerorpc
 import sys
 import os
 import input_split
+import gevent
 
 class JobClient(object):
-    def __init__(self, classname,split_size,num_redurcers,infile,outfile):
+    def __init__(self, master_addr,classname,split_size,num_redurcers,infile,outfile):
+        self.master_addr = master_addr
         self.classname = classname
         self.split_size = split_size
         self.num_redurcers = num_redurcers
@@ -17,13 +19,13 @@ class JobClient(object):
 
     def submitJobInternal(self):
         jobClient = zerorpc.Client()
-        jobClient.connect(master_addr)
-        jobID = jobClient.getNewJobID()
+        jobClient.connect(self.master_addr)
+        job_id = jobClient.getNewJobID()
         #compute splits
         splits = self.splitInput()
         #store job configuration
         conf = {
-            'jobId': jobID,
+            'jobId': job_id,
             'className': self.classname,
             'split_size': self.split_size,
             'splits': splits,
@@ -31,12 +33,28 @@ class JobClient(object):
             'infile':self.infile,
             'outfile': self.outfile
         }
-        print jobID
+        print job_id
         #check input and output
         e = os.path.exists(self.infile)
         if e == False:
             raise IOError,"No input file"
-        ret =jobClient.submitJob(conf)
+        jobClient.submitJob(conf)
+        return job_id
+
+    def run(self):
+        job_id = self.submitJobInternal()
+        while True:
+            gevent.sleep(5)
+            client = zerorpc.Client()
+            client.connect(master_addr)
+            state,progress = client.getJobStatus(job_id)
+            print 'Job %s state is : %s' %(self.classname, state)
+            print 'Job %s progress is: %s' %(self.classname, progress)
+            if state == 'COMPLETE':
+                print 'Please get result at %s : %s' %(self.master_addr, self.outfile)
+                break
+
+
         
         
 if __name__ == '__main__':
@@ -47,6 +65,7 @@ if __name__ == '__main__':
     input_file = sys.argv[5]
     output_file = sys.argv[6]
     
-    jobClient = JobClient(mr_class_name,split_size,num_reducers,input_file,output_file)
-    jobClient.submitJobInternal()
+    jobClient = JobClient(master_addr,mr_class_name,split_size,num_reducers,input_file,output_file)
+    jobClient.run()
+
     
