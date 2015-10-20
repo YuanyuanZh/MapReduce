@@ -1,5 +1,13 @@
-hello world hello world hello world hello word
-hello world hello world hello world hello word
-hello world hello world hello world hello word
-hello world hello world hello world hello word
-foo bar foo bar foo bar foo bar foo bar foo bar foo bar foo bar foo bar foo bar foo bar foo bar
+When failures occur in distributed system some system needs to reorganize to continue operation. This paper presents
+two election and reorganization algorithms for two failure environments. Seven basic assumptions, all nodes cooperate
+software has no bug, communications subsystems do not spontaneously generate messages, nodes have safe storage cells
+node halts when it fails no transmission error and messages are received same order as sent. In a system without
+communication failure and node pause, bully election algorithm is presented. Basic idea is that node with highest ID
+number is elected as coordinator to do the reorganization In a system with communication failure and node pause
+invitation election algorithm is presented. Node who wishes to become coordinator invites others to join its group
+After some time, coordinator will be elected within one group Multiple groups can exist due to communication failures
+The main weakness in my opinion would be the mechanism of handling node and communication failures during election and
+node recovering node during election.In bully algorithm, when one node is sending message or already completed the
+sending, a node with higher ID number is recovering and trying to halt all lower nodes. What is the cutoff point of
+election completion How to do message synchronization in the communication subsystem. Multiple nodes can send messages
+to one node the receiving node can see these message in arbitrary order.

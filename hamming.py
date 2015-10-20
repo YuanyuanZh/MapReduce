@@ -33,6 +33,7 @@ class Hamming(object):
             binary_list = binary_list[:i]+binary_list[i+1:]
         b_str = ''.join(binary_list)
         value = int(b_str,2)
+        c = chr(value)
         return chr(value)
 
 class HammingEncoder(Hamming):

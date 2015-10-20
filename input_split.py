@@ -23,7 +23,7 @@ class Split:
         split_num = 0
         if 'hamming' in self.class_name:
             if self.class_name in ['hammingDec','hammingFix']:
-                while (self.split_size *8)%12 != 0:
+                while (self.split_size)%12 != 0:
                     self.split_size = self.split_size + 1
             while offset < end:
                 split_map[split_num] = {offset:self.split_size}

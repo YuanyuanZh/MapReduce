@@ -1,3 +1,9 @@
 I am a bit confused regarding data structure in python simple list probably since I cannot identify the
 type of data I am failing to sort it words that start with an uppercase letter get preference over those
-starting with a lowercase letter
+starting with a lowercase letter When failures occur in distributed system some system needs to reorganize to continue
+operation This paper presents two election and reorganization algorithms for two failure environments Seven basic
+assumptions all nodes cooperate software has no bug communications subsystems do not spontaneously generate messages
+nodes have safe storage cells node halts when it fails no transmission error and messages are received same order as sent
+In a system without communication failure and node pause, bully election algorithm is presented Basic idea is that node
+with highest ID number is elected as coordinator to do the reorganization In a system with communication failure and node
+pause
