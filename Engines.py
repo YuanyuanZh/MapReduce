@@ -52,11 +52,18 @@ class WordCountEngine(Engine):
         job_for_reduces = self.collect_jobs(job_list)
         reducer = self.create_reduce_instance()
         reducer.set_output_oder((job_for_reduces.keys()[0])%10) # todo change (job_for_reduces.keys()[0]) to partionID
-        for i in job_for_reduces.keys():
-            keys = job_for_reduces[i].keys()
-            keys.sort()
-            for k in keys:
-                reducer.reduce(i,k,job_for_reduces.get(i)[k])
+        collect = {}
+        for key in job_for_reduces.keys():
+                keys = job_for_reduces[key].keys()
+                for k in keys:
+                    if k in collect:
+                        collect[reducer.output_order].append(job_for_reduces[key][k][0])
+                    else:
+                        collect[reducer.output_order]= job_for_reduces[key][k]
+        keys = collect.keys()
+        keys.sort()
+        for k in keys:
+            reducer.reduce(reducer.output_order,k,collect[k])
         reducer.write_Jason_result(self.output_base)
         reducer.write_txt_result(self.output_base)
 
@@ -102,6 +109,7 @@ class HammingEngine(Engine):
         keys = job_for_reduces.keys()
         reducer = self.create_reduce_instance()
         reducer.set_output_oder(keys[0]%10) #todo change to partionID
+
         for k in keys:
             reducer.reduce(k,job_for_reduces.get(k))
         reducer.write_text_result(self.output_base)
@@ -133,12 +141,17 @@ class SortEngine(Engine):
         return job_for_reduces #todo store partition result
 
     def SortReduceExecute(self,job_list): #need to give job list to reduce to collect job from map
-
+        collect = {}
         job_for_reduces = self.collect_jobs(job_list)
         keys = job_for_reduces.keys()
         reducer = self.create_reduce_instance()
         reducer.set_output_oder(keys[0]%10) #keys[0] partionID
-        for i in keys:
-            reducer.reduce(i,job_for_reduces.get(i))
+        index = reducer.output_order
+        for key in job_for_reduces.keys():
+            if index in collect:
+                collect[index] += job_for_reduces[key]
+            else:
+                collect[index] = job_for_reduces[key]
+        reducer.reduce(index,collect[index])
         reducer.write_Jason_result(self.output_base)
         reducer.write_txt_result(self.output_base)

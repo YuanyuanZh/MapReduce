@@ -54,16 +54,24 @@ class WordCountEngine(Engine):
 
         for j in range(int(self.num_reducer)):
             reducer = self.create_reduce_instance()
-            jobs = {}
-            for k in num_maps:
-                index = str(k)+str(j)
-                jobs[index]=(job_for_reduces.get(k)).get(index)
             reducer.set_output_oder(j)
-            for i in jobs.keys():
-                keys = jobs[i].keys()
-                keys.sort()
-                for key in keys:
-                    reducer.reduce(i,key,jobs.get(i)[key])
+            jobs = {}
+            collect = {}
+            for k in num_maps:
+                index = str(j)+str(k)
+                jobs[index]=(job_for_reduces.get(k)).get(index)
+
+            for key in jobs.keys():
+                keys = jobs[key].keys()
+                for k in keys:
+                    if k in collect:
+                        collect[k].append(jobs[key][k][0])
+                    else:
+                        collect[k]= jobs[key][k]
+            keys = collect.keys()
+            keys.sort()
+            for k in keys:
+                reducer.reduce(j,k,collect[k])
             reducer.write_Jason_result(self.output_base)
             reducer.write_txt_result(self.output_base)
 
@@ -94,13 +102,20 @@ class SortEngine(Engine):
 
         for j in range(int(self.num_reducer)):
             reducer = self.create_reduce_instance()
-            jobs = {}
-            for k in num_maps:
-                index = str(k)+str(j)
-                jobs[index]=(job_for_reduces.get(k)).get(index)
             reducer.set_output_oder(j)
-            for i in jobs.keys():
-                reducer.reduce(i,jobs.get(i))
+            jobs = {}
+            collect = {}
+            for k in num_maps:
+                index = str(j)+str(k)
+                jobs[index]=(job_for_reduces.get(k)).get(index)
+
+            for key in jobs.keys():
+                if j in collect:
+                    collect[j] += jobs[key]
+                else:
+                    collect[j] = jobs[key]
+
+            reducer.reduce(j,collect[j])
             reducer.write_Jason_result(self.output_base)
             reducer.write_txt_result(self.output_base)
 
@@ -122,7 +137,6 @@ class HammingEngine(Engine):
         size = split_dict.get(offset)
         file_object.seek(offset)
         input = file_object.read(size)
-        print input
         return input
 
     def execute(self):
