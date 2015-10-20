@@ -1,5 +1,9 @@
-hello world hello world hello world hello word
-hello world hello world hello world hello word
-hello world hello world hello world hello word
-hello world hello world hello world hello word
-foo bar foo bar foo bar foo bar foo bar foo bar foo bar foo bar foo bar foo bar foo bar foo bar
+When failures occur in distributed system some system needs to reorganize to continue operation This paper presents
+two election and reorganization algorithms for two failure environments Seven basic assumptions all nodes cooperate
+When failures occur in distributed system some system needs to reorganize to continue operation This paper presents
+two election and reorganization algorithms for two failure environments Seven basic assumptions all nodes cooperate
+When failures occur in distributed system some system needs to reorganize to continue operation This paper presents
+two election and reorganization algorithms for two failure environments Seven basic assumptions all nodes cooperate
+When failures occur in distributed system some system needs to reorganize to continue operation This paper presents
+two election and reorganization algorithms for two failure environments Seven basic assumptions all nodes cooperate
+
