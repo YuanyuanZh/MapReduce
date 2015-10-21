@@ -60,6 +60,7 @@ class HammingChecker(Hamming):
     def check(self, text):
         pos =0
         positions = []
+        l = len(text)
         while(len(text)>0):
             if text[0] == '\n':
                 break
@@ -73,7 +74,10 @@ class HammingChecker(Hamming):
                     positions += [pos]
         	    break
             pos += 1
-        return positions
+        if positions:
+            return "next "+str(l/12)+" bytes"+':error at byte'+str(positions)
+        else:
+            return "next "+str(l/12)+" bytes"+"no error"
 
 class HammingFixer(Hamming):
     def fix(self,text):
@@ -107,14 +111,17 @@ class HammingFixer(Hamming):
 
 class HammingError(Hamming):
     def createError(self,pos,text):
-        byte_pos = pos/12
-        bit_pos = pos%12
-        target_str = text[byte_pos * 12:(byte_pos+1)*12]
-        target_list = list(target_str)
-        if target_list[bit_pos-1] =='1':
-            target_list[bit_pos-1] ='0'
+        if pos == None or pos <0:
+            return text
         else:
-            target_list[bit_pos-1] ='1'
-        error_str = ''.join(target_list)
-        rst = text[:byte_pos * 12]+error_str+text[(byte_pos+1)*12:]
-        return rst
+            byte_pos = pos/12
+            bit_pos = pos%12
+            target_str = text[byte_pos * 12:(byte_pos+1)*12]
+            target_list = list(target_str)
+            if target_list[bit_pos-1] =='1':
+                target_list[bit_pos-1] ='0'
+            else:
+                target_list[bit_pos-1] ='1'
+            error_str = ''.join(target_list)
+            rst = text[:byte_pos * 12]+error_str+text[(byte_pos+1)*12:]
+            return rst

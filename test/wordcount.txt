@@ -2,8 +2,7 @@ When failures occur in distributed system some system needs to reorganize to con
 two election and reorganization algorithms for two failure environments Seven basic assumptions all nodes cooperate
 When failures occur in distributed system some system needs to reorganize to continue operation This paper presents
 two election and reorganization algorithms for two failure environments Seven basic assumptions all nodes cooperate
-When failures occur in distributed system some system needs to reorganize to continue operation This paper presents
-two election and reorganization algorithms for two failure environments Seven basic assumptions all nodes cooperate
-When failures occur in distributed system some system needs to reorganize to continue operation This paper presents
-two election and reorganization algorithms for two failure environments Seven basic assumptions all nodes cooperate
+starting with a lowercase letter When failures occur in distributed system some system needs to reorganize to continue
+operation This paper presents two election and reorganization algorithms for two failure environments Seven basic
+assumptions all nodes cooperate software has no bug communications subsystems do not spontaneously generate messages
 

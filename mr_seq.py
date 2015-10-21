@@ -1,6 +1,7 @@
 import sys
 import mr_classes
 import input_split
+import collect_data
 
 class Engine(object):
 
@@ -73,7 +74,6 @@ class WordCountEngine(Engine):
             for k in keys:
                 reducer.reduce(j,k,collect[k])
             reducer.write_Jason_result(self.output_base)
-            reducer.write_txt_result(self.output_base)
 
 class SortEngine(Engine):
 
@@ -117,7 +117,6 @@ class SortEngine(Engine):
 
             reducer.reduce(j,collect[j])
             reducer.write_Jason_result(self.output_base)
-            reducer.write_txt_result(self.output_base)
 
 class HammingEngine(Engine):
 
@@ -128,6 +127,10 @@ class HammingEngine(Engine):
             return mr_classes.hammingDecMap(split_id)
         elif class_name == "hammingFix":
             return mr_classes.hammingFixMap(split_id)
+        elif class_name == "hammingChk":
+            return mr_classes.hammingChkMap(split_id)
+        elif class_name == 'hammingErr':
+            return mr_classes.hammingErrMap(split_id)
 
     def create_reduce_instance(self):
         return mr_classes.hammingReduce()
@@ -147,6 +150,9 @@ class HammingEngine(Engine):
             mapper = self.create_map_instance(self.class_name,i)
             file_object = open(self.input_file)
             input = self.read_input(file_object,split_hashmap[i])
+            if self.class_name == 'hammingErr':
+                self.set_err_operation(i, mapper, split_hashmap)
+
             mapper.map(i, input)
 
             table = mapper.get_table()
@@ -165,13 +171,17 @@ class HammingEngine(Engine):
             for i in jobs.keys():
                 reducer.reduce(i,jobs.get(i))
             reducer.write_Jason_result(self.output_base)
-            reducer.write_txt_result(self.output_base)
+
+    def set_err_operation(self, i, mapper, split_hashmap):
+        if int(split_hashmap[i].keys()[0] + split_hashmap[i].get(split_hashmap[i].keys()[0])) >= int(sys.argv[6]):
+            mapper.set_err_pos(int(sys.argv[6]) - split_hashmap[i].keys()[0])
+
 
 if __name__ == '__main__':
     class_name = sys.argv[1]
     split_size = sys.argv[2]
     num_reducer = sys.argv[3]
-    in_filename = sys.argv[4]
+    in_filename = "./test/"+sys.argv[4]
     output_base = sys.argv[5]
 
     if class_name == 'WordCount':
@@ -181,3 +191,6 @@ if __name__ == '__main__':
     else:
         engine = HammingEngine(in_filename, split_size,class_name, num_reducer, output_base)
     engine.execute()
+
+    collector = collect_data.Collect_data(output_base,class_name+'_result')
+    collector.collect()
