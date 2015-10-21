@@ -1,11 +1,13 @@
 import hamming
 import json
 
+PATH = "./testoutput/"
 class Map(object):
 
-    def __init__(self,split_id):
+    def __init__(self,split_id,err_pos = None):
         self.table = {}
         self.split_id = split_id
+        self.err_pos = err_pos
 
     def map(self, k, v):
         pass
@@ -50,8 +52,8 @@ class Reduce(object):
         for key in rst.keys():
             out_put[out_put_key] += rst.get(key)
         out_put[out_put_key].sort()
-        out_file_name = output_base+"_"+"_"+str(self.output_order)+".json"
-        with open(out_file_name, "w") as file:
+        out_file_name = output_base+"_"+str(self.output_order)+".json"
+        with open(PATH+out_file_name, "w") as file:
             json.dump(out_put, file,indent=4,sort_keys= True)
         file.close()
 
@@ -102,7 +104,7 @@ class WordCountReduce(Reduce):
 
     def write_txt_result(self,output_base):
         rst = self.get_result_list()
-        out_file = open(output_base+"_"+str(self.output_order),'w')
+        out_file = open(PATH+output_base+"_"+str(self.output_order),'w')
         out_file.write(str(rst))
         out_file.close()
 
@@ -159,18 +161,10 @@ class SortReduce(Reduce):
     def emit(self, pm_order,v):
         self.result_list[pm_order] = v
 
-    def write_result(self,output_base):
-        reduce_serial = self.output_order
-        rst = self.get_result_list()
-        out_file = open(output_base+"_"+str(reduce_serial),'w')
-        out = ''
-        for i in rst.values():
-            out += str(i)
-        out_file.write(out)
 
     def write_txt_result(self,output_base):
         rst = self.get_result_list()
-        out_file = open(output_base+"_"+str(self.output_order),'w')
+        out_file = open(PATH+output_base+"_"+str(self.output_order),'w')
         out_file.write(str(rst))
         out_file.close()
 
@@ -211,6 +205,36 @@ class hammingFixMap(ham):
         fixer = hamming.HammingFixer()
         self.emit(k, fixer.fix(v))
 
+class hammingChkMap(ham):
+    def map(self, k, v):
+        chk = hamming.HammingChecker()
+        msg = chk.check(v)
+        self.emit(k,msg)
+
+    def partition(self,keys,nr):
+        job_for_reduces = {}
+        nums_reducer = nr
+        split_id = int(self.split_id)
+        c = 0
+        while c < nums_reducer:
+            index = str(split_id)+str(c)
+            job_for_reduces[index] = ''
+            c = c + 1
+        index = str(split_id)+str(split_id%nums_reducer)
+        job_for_reduces[index] = self.table[keys[0]][0]+'\n'
+
+        return job_for_reduces
+
+class hammingErrMap(ham):
+
+    def set_err_pos(self,err_pos):
+        self.err_pos =err_pos
+
+    def map(self, k, v):
+        err = hamming.HammingError()
+        rst = err.createError(self.err_pos,v)
+        self.emit(k,rst)
+
 class hammingReduce(Reduce):
 
     def reduce(self, k, vlist):
@@ -219,11 +243,11 @@ class hammingReduce(Reduce):
     def write_Jason_result(self,output_base):
         rst = self.get_result_list()
         out_file_name = output_base+"_"+str(self.output_order)+".json"
-        with open(out_file_name, "w") as file:
+        with open(PATH+out_file_name, "w") as file:
             json.dump(rst, file,indent=4,sort_keys= True)
         file.close()
 
     def write_txt_result(self,output_base):
         rst = self.get_result_list()
-        out_file = open(output_base+"_"+str(self.output_order),'w')
+        out_file = open(PATH+output_base+"_"+str(self.output_order),'w')
         out_file.write(str(rst))
