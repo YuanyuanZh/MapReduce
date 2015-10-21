@@ -22,7 +22,7 @@ class Split:
         offset = 0
         split_num = 0
         if 'hamming' in self.class_name:
-            if self.class_name in ['hammingDec','hammingFix']:
+            if self.class_name in ['hammingDec','hammingFix','hammingChk','hammingErr']:
                 while (self.split_size)%12 != 0:
                     self.split_size = self.split_size + 1
             while offset < end:
