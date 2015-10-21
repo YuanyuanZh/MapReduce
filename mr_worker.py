@@ -10,6 +10,7 @@ from Engines import *
 import time
 import json
 
+
 class Worker():
     def __init__(self, master_address, worker_address=None):
         self.id = None
@@ -83,7 +84,7 @@ class Worker():
         task.progress = 'Finish mapping.'
         task.changeToFinish = True
         print "Finish Mapper: key: %s, task_id: %s at %s" % (
-        task.split_id, task.task_id, time.asctime(time.localtime(time.time())))
+            task.split_id, task.task_id, time.asctime(time.localtime(time.time())))
 
     def collectAllInputsForReducer(self, task):
         # get all input from other workers
@@ -101,12 +102,15 @@ class Worker():
                     partition = client.getPartition(task.job_id, split_id, task.partition_id)
                     if partition is not None:
                         task.partitions[key] = partition
-                        print "Get partition %s from worker %s successfully at %s" %(key,worker['address'],time.asctime( time.localtime(time.time()) ))
+                        print "Get partition %s from worker %s successfully at %s" % (
+                        key, worker['address'], time.asctime(time.localtime(time.time())))
                     else:
-                        print "Get partition %s from worker %s failed at %s" %(key,worker['address'],time.asctime( time.localtime(time.time()) ))
+                        print "Get partition %s from worker %s failed at %s" % (
+                        key, worker['address'], time.asctime(time.localtime(time.time())))
             # Get all inputs
             if len(task.partitions) == task.num_mappers:
-                print "Get all partitions for reducer: key: %s, task_id: %s, length: %d at %s" %(task.partition_id,task.task_id,len(task.partitions),time.asctime( time.localtime(time.time()) ))
+                print "Get all partitions for reducer: key: %s, task_id: %s, length: %d at %s" % (
+                task.partition_id, task.task_id, len(task.partitions), time.asctime(time.localtime(time.time())))
                 return 0
             gevent.sleep(5)
 
@@ -144,7 +148,7 @@ class Worker():
         self.collectAllInputsForReducer(task)
 
         engine.WordCountReduceExecute(task.partitions)
-        # reducer.set_output_oder((job_for_reduces.keys()[0]) % 10)  # todo change (job_for_reduces.keys()[0]) to 编号
+        # reducer.set_output_oder((job_for_reduces.keys()[0]) % 10)
         # for i in job_for_reduces.keys():
         #     keys = job_for_reduces[i].keys()
         #     keys.sort()
@@ -156,7 +160,7 @@ class Worker():
         task.progress = 'Finish reducing.'
         task.changeToFinish = True
         print "Finish Reducer: key: %s, task_id: %s at %s" % (
-        task.partition_id, task.task_id, time.asctime(time.localtime(time.time())))
+            task.partition_id, task.task_id, time.asctime(time.localtime(time.time())))
 
     def getMyAddress(self):
         try:
@@ -175,8 +179,8 @@ class Worker():
                 return self.all_map_task_list[job_id][split_id].partitions[key]
         return None
 
-    def getReducerResult(self, partition_id, outfile):
-        filename = outfile + '_' + partition_id
+    def getReducerResult(self, partition_id, outfile_base):
+        filename = outfile_base + "_" + partition_id + ".json"
         with open(filename, 'r') as f:
             data = json.load(f)
         return data
@@ -187,7 +191,7 @@ class Worker():
             addr = self.worker_address
         else:
             addr = "0.0.0.0:" + self.worker_address.split(":")[1]
-        print "worker address is: %s at: " % (addr, time.asctime(time.localtime(time.time())))
+        print "worker address is: %s at %s " % (addr, time.asctime(time.localtime(time.time())))
         # addr = "tcp://0.0.0.0:"+port
         master.bind('tcp://' + addr)
         master.run()
@@ -197,12 +201,27 @@ class Worker():
         client.connect('tcp://' + self.master_address)
         self.id = client.registerWorker(self.worker_address)
 
-    def startMap(self, task):
-        thread = gevent.spawn(self.mapper(task))
-        print "Create map thread: %s at %s" % (thread, time.asctime(time.localtime(time.time())))
+    def convertDictToMapTask(self, dict):
+        task = MapTask(dict['job_id'], dict['split_id'], dict['task_id'], dict['className'], dict['worker'],
+                       dict['splits'], dict['infile'], dict['partitions'], dict['num_reducers'], dict['outfile'])
+        return task
 
-    def startReduce(self, task):
+    def convertDictToReduceTask(self, dict):
+        task = ReduceTask(dict['job_id'], dict['partition_id'], dict['task_id'], dict['className'], dict['worker'],
+                       dict['partitions'], dict['outfile'], dict['num_mappers'], dict['infile'], dict['num_reducers'])
+        return task
+
+    def startMap(self, task_dict):
+        print "Begin create map thread: at %s" % (time.asctime(time.localtime(time.time())))
+        task = self.convertDictToMapTask(task_dict)
+        thread = gevent.spawn(self.mapper, task)
+        print "Create map thread: %s at %s" % (thread, time.asctime(time.localtime(time.time())))
+        return 0
+
+    def startReduce(self, task_dict):
+        task = self.convertDictToReduceTask(task_dict)
         gevent.spawn(self.reducer(task))
+        return 0
 
     def heartbeat(self):
         while True:
@@ -210,18 +229,33 @@ class Worker():
                 status_mapper = MapperStatus(self.current_mapper.job_id, self.current_mapper.split_id,
                                              self.current_mapper.task_id, self.current_mapper.state,
                                              self.current_mapper.progress, self.current_mapper.changeToFinish)
+                status_mapper_dict = status_mapper.__dict__
             else:
                 status_mapper = None
+                status_mapper_dict = None
             if self.current_reducer is not None:
                 status_reducer = ReducerStatus(self.current_reducer.job_id, self.current_reducer.partition_id,
                                                self.current_reducer.task_id, self.current_reducer.state,
                                                self.current_reducer.progress, self.current_reducer.changeToFinish)
+                status_reducer_dict = status_reducer.__dict__
             else:
                 status_reducer = None
+                status_reducer_dict = None
             status = WorkerStatus(self.id, self.worker_address, "RUNNING", status_mapper, status_reducer)
+            status_dict = {
+                'worker_id':self.id,
+                'worker_address': self.worker_address,
+                'worker_status': 'RUNNING',
+                'num_heartbeat': 0,
+                'num_callback':0,
+                'timeout_times':0,
+                'mapper_status':status_mapper_dict,
+                'reducer_status':status_reducer_dict
+            }
+            print "send status"
             client = zerorpc.Client()
             client.connect('tcp://' + self.master_address)
-            ret = client.updateWorkerStatus(status)
+            ret = client.updateWorkerStatus(status_dict)
             if ret != 0:
                 print "Worker update status failed: worker_id: %s, ip: %s at %s" % (
                     self.id, self.worker_address, time.asctime(time.localtime(time.time())))
@@ -236,13 +270,18 @@ class Worker():
 
     def run(self):
         self.register()
+        # self.startRPCServer()
+        thread1 = gevent.spawn(self.heartbeat)
+        # self.startRPCServer()
+        gevent.joinall([thread1])
         self.startRPCServer()
-        thread1 = gevent.spawn(self.heartbeat())
-        gevent.joinall(thread1)
 
 
 if __name__ == '__main__':
     master_address = sys.argv[1]
-    worker_address = sys.argv[2]
+    if len(sys.argv) == 3:
+        worker_address = sys.argv[2]
+    else:
+        worker_address = None
     worker = Worker(master_address, worker_address)
     worker.run()

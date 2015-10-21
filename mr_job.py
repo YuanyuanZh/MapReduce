@@ -1,8 +1,9 @@
 import zerorpc
 import sys
 import os
-import input_split
+# import input_split
 import gevent
+import time
 
 class JobClient(object):
     def __init__(self, master_addr,classname,split_size,num_redurcers,infile,outfile):
@@ -13,27 +14,27 @@ class JobClient(object):
         self.infile = infile
         self.outfile = outfile
 
-    def splitInput(self):
-        split_hashmap = input_split.Split(self.infile,self.split_size,self.classname).generate_split_info()
-        return split_hashmap
+    # def splitInput(self):
+    #     split_hashmap = input_split.Split(self.infile,self.split_size,self.classname).generate_split_info()
+    #     return split_hashmap
 
     def submitJobInternal(self):
         jobClient = zerorpc.Client()
         jobClient.connect('tcp://'+ self.master_addr)
         job_id = jobClient.getNewJobID()
         #compute splits
-        splits = self.splitInput()
+        #splits = self.splitInput()
         #store job configuration
         conf = {
             'jobId': job_id,
             'className': self.classname,
             'split_size': self.split_size,
-            'splits': splits,
+            #'splits': splits,
             'num_reducers': self.num_reducers,
             'infile':self.infile,
             'outfile': self.outfile
         }
-        print job_id
+        print "Get Job id: %d at %s" %(job_id,time.asctime( time.localtime(time.time()) ))
         #check input and output
         e = os.path.exists(self.infile)
         if e == False:
