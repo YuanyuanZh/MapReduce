@@ -5,6 +5,7 @@ from gevent.queue import Queue
 from mr_data import *
 import random
 from gevent.lock import *
+import time
 
 
 class Master():
@@ -20,6 +21,7 @@ class Master():
         self.task_list = []
         self.worker_status_list = {}
         self.event_queue = Queue()
+        self.collect_queue = Queue()
 
     def getNewJobID(self):
         self.job_id += 1
@@ -29,12 +31,12 @@ class Master():
         # create job
         job = Job(conf)
         self.jobs.put_nowait(job)
+        print "Initialize Job: job_id: %s at %s" % (job.jobId, time.asctime(time.localtime(time.time())))
         return 0
 
     def getJobStatus(self, job_id):
         job = self.processing_jobs[job_id]
         return job.status, job.progress
-
 
     def registerWorker(self, worker_address):
         self.worker_id += 1
@@ -44,9 +46,11 @@ class Master():
             "mapper": 'Free',
             "reducer": 'Free'
         }
-        #self.worker_list[self.worker_id] = worker
+        # self.worker_list[self.worker_id] = worker
         self.reportEvent('REGISTER_WORKER', worker)
         self.worker_status_list[self.worker_id] = WorkerStatus(self.worker_id, worker_address, "RUNNING", None, None)
+        print "Receive register worker: worker_id: %s, ip: %s at %s" % (
+        worker['id'], worker['address'], time.asctime(time.localtime(time.time())))
         return self.worker_id
 
     def getMapSlot(self):
@@ -68,8 +72,8 @@ class Master():
         # find corresponding map result
         job = self.processing_jobs[job_id]
         map_list = job.map_task_list
-        for i in range(len(map_list)):
-            task = map_list[i]
+        for key, task in map_list.items():
+            # task = map_list[i]
             if task.state == 'FINISH':
                 locations[task.split_id] = task.worker
         return locations
@@ -88,7 +92,7 @@ class Master():
                     task.worker = worker
                     # start task
                     client = zerorpc.Client()
-                    client.connect(worker["address"])
+                    client.connect('tcp://'+ worker["address"])
                     if type == 'mapper':
                         ret = client.startMap(task)
                     else:
@@ -97,9 +101,9 @@ class Master():
                         task.state == 'STARTING'
                     else:
                         print "Start %s task on %s failed" % (type, worker["address"])
-                        worker[type] = None
+                        worker[type] = "Free"
 
-    def isAllTasksFinished(self,task_list):
+    def isAllTasksFinished(self, task_list):
         count = 0
         for key in task_list.keys():
             if task_list[key].state == 'FINISH':
@@ -110,94 +114,136 @@ class Master():
             return False
 
     def jobScheduler(self):
+        job = None
         while True:
             while not self.jobs.empty():
-                job = self.jobs.get()
-                self.processing_jobs[job.jobId] = job
-                # num_map_tasks = 0
-                # num_reducer_tasks = 0
-                # for i in range(len(self.worker_list)):
-                #     if self.worker_list[i]['mapper'] == None:
-                #         num_map_tasks += 1
-                #     if self.worker_list[i]['reducer'] == None:
-                #         num_reducer_tasks += 1
-                partitions = []
+                if job is None or job.state == 'COMPLETE':
+                    job = self.jobs.get()
+                    self.processing_jobs[job.jobId] = job
+                    # num_map_tasks = 0
+                    # num_reducer_tasks = 0
+                    # for i in range(len(self.worker_list)):
+                    #     if self.worker_list[i]['mapper'] == None:
+                    #         num_map_tasks += 1
+                    #     if self.worker_list[i]['reducer'] == None:
+                    #         num_reducer_tasks += 1
+                    partitions = []
 
-                # assign tasks in creating job
-                self.assignTask('mapper', job.map_task_list)
-                self.assignTask('reducer', job.map_task_list)
-                self.processing_jobs[job.jobId].state = 'PROCESSING'
-                self.processing_jobs[job.jobId].progress = '0%'
-                while job.state != 'COMPLETE':
-                    while not self.event_queue.empty():
-                        event = self.event_queue.get_nowait()
-                        if event.type == 'MAPPER_FINISHED':
-                            self.finishMapper(event.status, job.map_task_list)
-                        if event.type == 'REDUCER_FINISHED':
-                            self.finishReducer(event.status, job.reduce_task_list)
-                        if event.type == 'WORKER_DOWN':
-                            self.processWorkerDown(event.status, job)
-                        if event.type == 'REGISTER_WORKER':
-                            worker = event.status
-                            self.worker_list[worker['id']] = worker
-                            self.assignTask('mapper', job.map_task_list)
-                            self.assignTask('reducer', job.map_task_list)
-                        # if event.type == 'NEED_COLLECT':
-                        #     #finish map and reduce, let main thread to collect results
-                        #     break
-
-
+                    # assign tasks in creating job
+                    self.assignTask('mapper', job.map_task_list)
+                    self.assignTask('reducer', job.map_task_list)
+                    self.processing_jobs[job.jobId].state = 'PROCESSING'
+                    self.processing_jobs[job.jobId].progress = '0%'
+                    # while job.state != 'COMPLETE':
+            while not self.event_queue.empty():
+                event = self.event_queue.get_nowait()
+                if event.type == 'MAPPER_FINISHED':
+                    self.finishMapper(event.status, job.map_task_list)
+                if event.type == 'REDUCER_FINISHED':
+                    self.finishReducer(event.status, job.reduce_task_list)
+                if event.type == 'WORKER_DOWN':
+                    self.processWorkerDown(event.status, job)
+                if event.type == 'REGISTER_WORKER':
+                    worker = event.status
+                    self.worker_list[worker['id']] = worker
+                    print "Register Worker: worker_id: %s, ip: %s at %s" % (
+                    worker['id'], worker['address'], time.asctime(time.localtime(time.time())))
+                    self.assignTask('mapper', job.map_task_list)
+                    self.assignTask('reducer', job.map_task_list)
+                if event.type == 'COLLECT_SUCCESS':
+                    # change job status
+                    self.processing_jobs[job.jobId].state = 'COMPLETE'
+                    self.processing_jobs[job.jobId].progress = '100%'
+                    job.state = 'COMPLETE'
 
     def finishMapper(self, workerStatus, mapper_list):
-        #update task status
+        # update task status
         task = mapper_list[workerStatus.mapper_status.split_id]
         task.state = workerStatus.mapper_status.state
         task.progress = workerStatus.mapper_status.progress
-        #update worker assign state
+        # update worker assign state
         self.worker_list[workerStatus.worker_id]['mapper'] = 'Free'
-        #assgin new mapper task to this slot
+        # assgin new mapper task to this slot
         self.assignTask('mapper', mapper_list)
+        print "Finish Mapper: key: %s, task_id: %s, worker_id: %s, ip: %s at %s" % (
+            task.split_id, task.task_id, task.worker['id'], task.worker['address'],
+            time.asctime(time.localtime(time.time())))
 
     def finishReducer(self, workerStatus, reducer_list):
-        #update task status
-        task = reducer_list[workerStatus.reducer_status.split_id]
+        # update task status
+        task = reducer_list[workerStatus.reducer_status.partition_id]
         task.state = workerStatus.reducer_status.state
         task.progress = workerStatus.reducer_status.progress
-        #update worker assign state
+        # update worker assign state
         self.worker_list[workerStatus.worker_id]['reducer'] = 'Free'
-        #assgin new reducer task to this slot
+        # assgin new reducer task to this slot
         self.assignTask('reducer', reducer_list)
-        #check if all reducers finished
+        # check if all reducers finished
         if self.isAllTasksFinished(reducer_list):
+            self.collect_queue.put(reducer_list)
             # self.reportEvent('NEED_COLLECT', reducer_list)
-            ret = self.collectResults(reducer_list)
-            if ret == 0:
-                #change job status
-                self.processing_jobs[task.job_id].state = 'COMPLETE'
-                self.processing_jobs[task.job_id].progress = '100%'
+            # ret = self.collectResults(reducer_list)
+            # if ret == 0:
+            #     #change job status
+            #     self.processing_jobs[task.job_id].state = 'COMPLETE'
+            #     self.processing_jobs[task.job_id].progress = '100%'
+        print "Finish Reducer: key: %s, task_id: %s, worker_id: %s, ip: %s at %s" % (
+            task.partition_id, task.task_id, task.worker['id'], task.worker['address'],
+            time.asctime(time.localtime(time.time())))
         return
 
-    def mergeData(self, data_list, filename):
+    def collectJobResult(self):
+        while True:
+            while not self.collect_queue.empty():
+                reducer_list = self.collect_queue.get_nowait()
+                ret = self.collectResults(reducer_list)
+                if ret == 0:
+                    self.reportEvent('COLLECT_SUCCESS', None)
+                else:
+                    print "Collect result failed at: ", time.asctime(time.localtime(time.time()))
+
+    def mergeData(self, data_list, output_filename):
+        data_dict = {}
+        for k in data_list:
+            keys = k.keys()
+            for key in keys:
+                data_dict[key]=k.get(key)
+
+        keys = data_dict.keys()
+        keys.sort()
+        out_str = ''
+        for key in keys:
+            s = ''
+            vaule = data_dict.get(key)
+            for v in vaule:
+                s += v
+            out_str += s
+        out_file = open(output_filename,'w')
+        out_file.write(str(out_str))
         return
 
     def collectResults(self, reducer_list):
         data_list = []
         for key, task in reducer_list.items():
             client = zerorpc.Client()
-            client.connect(task.worker['address'])
-            data = client.getReducerResult(task.partition_id,task.outfile)
+            client.connect('tcp://'+ task.worker['address'])
+            data = client.getReducerResult(task.partition_id, task.outfile)
             if data is not None:
                 data_list.append(data)
             else:
+                print "Get reduce result failed on worker: id: %s, address:%s %s" % (
+                    task.worker['id'], task.worker['address'], time.asctime(time.localtime(time.time())))
                 return -1
-        self.mergeData(data_list,task.outfile)
+        self.mergeData(data_list, task.outfile)
         return 0
 
-    def processWorkerDown(self,workerStatus, job):
-        #remove worker from worker list
+    def processWorkerDown(self, workerStatus, job):
+        print "Processing worker down: key: worker_id: %s, ip: %s at %s" % (
+            workerStatus.worker_id, workerStatus.worker_address, time.asctime(time.localtime(time.time())))
+        # remove worker from worker list
         del self.worker_list[workerStatus.worker_id]
         del self.worker_status_list[workerStatus.worker_id]
-        #if reducer down, clean this reducer task
+        # if reducer down, clean this reducer task
         if workerStatus.reducer_status is not None:
             task = job.reduce_task_list[workerStatus.reducer_status.partition_id]
             task.task_id = None
@@ -205,14 +251,15 @@ class Master():
             task.state = 'NOT_ASSIGNED'
             task.progress = '0'
         self.assignTask("mapper", job.reduce_task_list)
-        #if mapper down, clean this mapper task
+
+        # if mapper down, clean this mapper task
         if workerStatus.mapper_status is not None:
             task = job.map_task_list[workerStatus.mapper_status.split_id]
             task.task_id = None
             task.worker = None
             task.state = 'NOT_ASSIGNED'
             task.progress = '0'
-        self.assignTask('reducer',job.map_task_list)
+        self.assignTask('reducer', job.map_task_list)
 
     def heartBeat(self):
         while True:
@@ -224,6 +271,9 @@ class Master():
                     if workerStatus.timeout_times == 3:
                         workerStatus.worker_status = 'DOWN'
                         self.reportEvent('WORKER_DOWN', workerStatus)
+                        print "Find worker down: worker_id: %s, ip: %s at %s" % (
+                            workerStatus.worker_id, workerStatus.worker_address,
+                            time.asctime(time.localtime(time.time())))
                 else:
                     workerStatus.num_heartbeat = workerStatus.num_callback
                     workerStatus.timeout_times = 0
@@ -235,14 +285,14 @@ class Master():
 
     def updateWorkerStatus(self, workerStatus):
         # check status
-        orgin_status = self.worker_status_list[workerStatus.id]
-        if orgin_status.worker_status != 'Down':
+        origin_status = self.worker_status_list[workerStatus.id]
+        if origin_status.worker_status != 'Down':
             if workerStatus.mapper_status is not None:
                 # check task state
-                if workerStatus.mapper_status.stateChange == True:
+                if workerStatus.mapper_status.changeToFinish == True:
                     self.reportEvent('MAPPER_FINISHED', workerStatus)
             if workerStatus.mapper_status is not None:
-                if workerStatus.reducer_status.stateChange == True:
+                if workerStatus.reducer_status.changeToFinish == True:
                     self.reportEvent('REDUCER_FINISHED', workerStatus)
         self.worker_status_list[workerStatus.id].mapper_status = workerStatus.mapper_status
         self.worker_status_list[workerStatus.id].reducer_status = workerStatus.reducer_status
@@ -252,7 +302,8 @@ class Master():
     def run(self):
         thread1 = gevent.spawn(self.jobScheduler())
         thread2 = gevent.spawn(self.heartBeat())
-        gevent.joinall([thread1, thread2])
+        thread3 = gevent.spawn(self.collectJobResult())
+        gevent.joinall([thread1, thread2, thread3])
 
 
 if __name__ == '__main__':

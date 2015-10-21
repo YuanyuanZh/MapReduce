@@ -19,7 +19,7 @@ class JobClient(object):
 
     def submitJobInternal(self):
         jobClient = zerorpc.Client()
-        jobClient.connect(self.master_addr)
+        jobClient.connect('tcp://'+ self.master_addr)
         job_id = jobClient.getNewJobID()
         #compute splits
         splits = self.splitInput()
@@ -46,7 +46,7 @@ class JobClient(object):
         while True:
             gevent.sleep(5)
             client = zerorpc.Client()
-            client.connect(master_addr)
+            client.connect('tcp://'+ self.master_addr)
             state,progress = client.getJobStatus(job_id)
             print 'Job %s state is : %s' %(self.classname, state)
             print 'Job %s progress is: %s' %(self.classname, progress)

@@ -32,7 +32,7 @@ class WordCountEngine(Engine):
     def create_reduce_instance(self):
         return mr_classes.WordCountReduce()
 
-    def WordCountMapExecute(self,assigned_split):
+    def WordCountMapExecute(self,assigned_split,split_id):
 
         mapper = self.create_map_instance(split_id) # todo need to replace 1 as split_# you get
         file_object = open(self.input_file)
@@ -46,10 +46,11 @@ class WordCountEngine(Engine):
 
         #partion
         job_for_reduces= mapper.partition(keys,self.num_reducer)
+        return job_for_reduces
 
-    def WordCountReduceExecute(self,job_list):
+    def WordCountReduceExecute(self,job_for_reduces):
 
-        job_for_reduces = self.collect_jobs(job_list)
+        # job_for_reduces = self.collect_jobs(job_list)
         reducer = self.create_reduce_instance()
         reducer.set_output_oder((job_for_reduces.keys()[0])%10) # todo change (job_for_reduces.keys()[0]) to partionID
         collect = {}
@@ -88,7 +89,7 @@ class HammingEngine(Engine):
         print input
         return input
 
-    def HammingMapExecute(self,assigned_split):#assigned split means the {offset:size} info
+    def HammingMapExecute(self,assigned_split,class_name,split_id):#assigned split means the {offset:size} info
         # Map phase
         mapper = self.create_map_instance(class_name,split_id)
         file_object = open(self.input_file)
@@ -123,7 +124,7 @@ class SortEngine(Engine):
     def create_reduce_instance(self):
         return mr_classes.SortReduce()
 
-    def SortMapExecute(self,assigned_split):
+    def SortMapExecute(self,assigned_split, split_id):
         mapper = self.create_map_instance(split_id)
         file_object = open(self.input_file)
         input = self.read_input(file_object,assigned_split)
