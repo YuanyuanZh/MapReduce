@@ -70,7 +70,7 @@ class WordCountMap(Map):
         split_id = int(self.get_split_id())
         c = 0
         while c < nums_reducer:
-            index = str(c)+str(split_id)
+            index = str(split_id)+str(c)
             job_for_reduces[index] = {}
             c = c + 1
         div_unit = len(alphabet)/nums_reducer
@@ -89,7 +89,7 @@ class WordCountMap(Map):
             key_str = keys[i]
             for j in range(len(pos)):
                 if (key_str[0]).lower() < alphabet[pos[j]]:
-                    index = str(j)+str(split_id)
+                    index = str(split_id)+str(j)
                     job_for_reduces[index][keys[i]] = self.table[keys[i]]
                     break
         return job_for_reduces
@@ -125,7 +125,7 @@ class SortMap(Map):
         split_id = int(self.get_split_id())
         c = 0
         while c < nums_reducer:
-            index = str(c)+str(split_id)
+            index = str(split_id)+str(c)
             job_for_reduces[index] = []
             c = c + 1
         div_unit = len(alphabet)/nums_reducer
@@ -147,7 +147,7 @@ class SortMap(Map):
                 w = i
                 for j in range(len(pos)):
                     if (w[0]).lower() < alphabet[pos[j]]:
-                        index = str(j)+str(split_id)
+                        index = str(split_id)+str(j)
                         job_for_reduces[index].append(w)
                         break
         return job_for_reduces
