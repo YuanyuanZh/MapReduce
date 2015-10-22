@@ -233,3 +233,4 @@ class hammingReduce(Reduce):
         with open(out_file_name, "w") as file:
             json.dump(rst, file,indent=4,sort_keys= True)
         file.close()
+

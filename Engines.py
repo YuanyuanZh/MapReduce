@@ -32,7 +32,7 @@ class WordCountEngine(Engine):
     def create_reduce_instance(self):
         return mr_classes.WordCountReduce()
 
-    def WordCountMapExecute(self,assigned_split,split_id):
+    def map_execute(self,assigned_split,split_id):
 
         mapper = self.create_map_instance(split_id)
         file_object = open(self.input_file)
@@ -48,7 +48,7 @@ class WordCountEngine(Engine):
         job_for_reduces= mapper.partition(keys,self.num_reducer)
         return job_for_reduces
 
-    def WordCountReduceExecute(self,job_for_reduces,partition_id):
+    def reduce_execute(self,job_for_reduces,partition_id):
 
         # job_for_reduces = self.collect_jobs(job_list)
         reducer = self.create_reduce_instance()
@@ -89,7 +89,7 @@ class HammingEngine(Engine):
         print input
         return input
 
-    def HammingMapExecute(self,assigned_split,class_name,split_id):#assigned split means the {offset:size} info
+    def map_execute(self,assigned_split,class_name,split_id):#assigned split means the {offset:size} info
         # Map phase
         mapper = self.create_map_instance(class_name,split_id)
         file_object = open(self.input_file)
@@ -104,9 +104,11 @@ class HammingEngine(Engine):
         #partion
         job_for_reduces= mapper.partition(keys,self.num_reducer)
 
-    def HammingReduceExecute(self,job_list,partition_id):
+        return job_for_reduces
+
+    def reduce_execute(self,job_for_reduces,partition_id):
         #Reduce phase
-        job_for_reduces = self.collect_jobs(job_list) # collect must contain {split_id : task}
+        # job_for_reduces = self.collect_jobs(job_list) # collect must contain {split_id : task}
         keys = job_for_reduces.keys()
         reducer = self.create_reduce_instance()
         reducer.set_output_oder(partition_id)
@@ -123,7 +125,7 @@ class SortEngine(Engine):
     def create_reduce_instance(self):
         return mr_classes.SortReduce()
 
-    def SortMapExecute(self,assigned_split, split_id):
+    def map_execute(self,assigned_split, split_id):
         mapper = self.create_map_instance(split_id)
         file_object = open(self.input_file)
         input = self.read_input(file_object,assigned_split)
@@ -138,12 +140,12 @@ class SortEngine(Engine):
         #partion
         job_for_reduces= mapper.partition(keys,self.num_reducer)
 
-        return job_for_reduces #todo store partition result
+        return job_for_reduces
 
-    def SortReduceExecute(self,job_list, partition_id): #need to give job list to reduce to collect job from map
+    def reduce_execute(self,job_for_reduces, partition_id): #need to give job list to reduce to collect job from map
         collect = {}
-        job_for_reduces = self.collect_jobs(job_list)
-        keys = job_for_reduces.keys()
+        # job_for_reduces = self.collect_jobs(job_list)
+        # keys = job_for_reduces.keys()
         reducer = self.create_reduce_instance()
         reducer.set_output_oder(partition_id) #keys[0] partionID
         index = reducer.output_order
