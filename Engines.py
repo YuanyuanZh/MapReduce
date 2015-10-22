@@ -113,7 +113,6 @@ class HammingEngine(Engine):
 
         for k in keys:
             reducer.reduce(k,job_for_reduces.get(k))
-        reducer.write_text_result(self.output_base)
         reducer.write_Jason_result(self.output_base)
 
 class SortEngine(Engine):
@@ -155,4 +154,3 @@ class SortEngine(Engine):
                 collect[index] = job_for_reduces[key]
         reducer.reduce(index,collect[index])
         reducer.write_Jason_result(self.output_base)
-        reducer.write_txt_result(self.output_base)
