@@ -243,11 +243,11 @@ class hammingReduce(Reduce):
     def write_Jason_result(self,output_base):
         rst = self.get_result_list()
         out_file_name = output_base+"_"+str(self.output_order)+".json"
-        with open(PATH+out_file_name, "w") as file:
+        with open(out_file_name, "w") as file:
             json.dump(rst, file,indent=4,sort_keys= True)
         file.close()
 
     def write_txt_result(self,output_base):
         rst = self.get_result_list()
-        out_file = open(PATH+output_base+"_"+str(self.output_order),'w')
+        out_file = open(output_base+"_"+str(self.output_order),'w')
         out_file.write(str(rst))
