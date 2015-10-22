@@ -52,7 +52,7 @@ class JobClient(object):
             print 'Job %s state is : %s' %(self.classname, state)
             print 'Job %s progress is: %s' %(self.classname, progress)
             if state == 'COMPLETE':
-                print 'Please get result at %s : %s' %(self.master_addr, self.outfile)
+                print 'Please get result at %s : %s.txt' %(self.master_addr, self.outfile)
                 break
 
 

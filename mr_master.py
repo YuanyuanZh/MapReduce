@@ -94,13 +94,19 @@ class Master():
         return locations
 
     def assignTask(self, type, task_list):
-        for i in range(len(task_list)):
+        for i in task_list.keys():
             if task_list[i].state == 'NOT_ASSIGNED':
                 if type == 'mapper':
+                    # print " Get M Slot"
                     worker = self.getMapSlot()
                 else:
                     worker = self.getReduceSlot()
+                    # print " Get R Slot"
+
                 if worker is not None:
+                    # print "worker %s " %worker['id']
+                    # print "Task TYPE %s " %type
+
                     task = task_list[i]
                     self.task_id += 1
                     task.task_id = self.task_id
@@ -110,7 +116,10 @@ class Master():
                     client.connect('tcp://' + worker["address"])
                     if type == 'mapper':
                         task_dict = task.__dict__
+                        # print "Start Mapper %s on worker %s" %(task.split_id , worker['id'])
                         ret = client.startMap(task_dict)
+                        # print "Start Mapper OK %s on worker %s" %(task.split_id, worker['id'])
+
                     else:
                         task_dict = task.__dict__
                         print "Start Reducer task"
@@ -200,12 +209,13 @@ class Master():
         task.state = workerStatus.mapper_status.state
         task.progress = workerStatus.mapper_status.progress
         # update worker assign state
+        print "Finish Mapper: key: %s, task_id: %s, worker_id: %s, ip: %s at %s" % (
+        task.split_id, task.task_id, task.worker['id'], task.worker['address'],
+        time.asctime(time.localtime(time.time())))
         self.worker_list[workerStatus.worker_id]['mapper'] = 'Free'
         # assgin new mapper task to this slot
         self.assignTask('mapper', mapper_list)
-        print "Finish Mapper: key: %s, task_id: %s, worker_id: %s, ip: %s at %s" % (
-            task.split_id, task.task_id, task.worker['id'], task.worker['address'],
-            time.asctime(time.localtime(time.time())))
+
 
     def finishReducer(self, workerStatus, reducer_list):
         # update task status
@@ -296,9 +306,13 @@ class Master():
                 task.worker = None
                 task.state = 'NOT_ASSIGNED'
                 task.progress = '0'
+        # del self.worker_list[workerStatus.worker_id]
+        # del self.worker_status_list[workerStatus.worker_id]
         if job is not None:
             self.assignTask("reducer", job.reduce_task_list)
             self.assignTask('mapper', job.map_task_list)
+        else :
+            print " Job is none"
 
     def heartBeat(self):
         print "enter heartbeat : at %s" %time.asctime( time.localtime(time.time()) )
@@ -346,7 +360,9 @@ class Master():
             if workerStatus.mapper_status is not None:
                 # check task state
                 if workerStatus.mapper_status.changeToFinish == True:
+                    print "Mapper finish key: %d worker : %d" %(workerStatus.mapper_status.split_id, workerStatus.worker_id)
                     self.reportEvent('MAPPER_FINISHED', workerStatus)
+
             if workerStatus.reducer_status is not None:
                 if workerStatus.reducer_status.changeToFinish == True:
                     self.reportEvent('REDUCER_FINISHED', workerStatus)
