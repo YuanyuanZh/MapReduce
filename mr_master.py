@@ -51,7 +51,7 @@ class Master():
 
     def getJobStatus(self, job_id):
         job = self.processing_jobs[job_id]
-        return job.status, job.progress
+        return job.state, job.progress
 
     def registerWorker(self, worker_address):
         self.worker_id += 1
@@ -76,10 +76,10 @@ class Master():
         return None
 
     def getReduceSlot(self):
-        for i in range(len(self.worker_list)):
-            if self.worker_list[i]['reducer'] == 'Free':
-                self.worker_list[i]['reducer'] = 'Occupied'
-                return self.worker_list[i]
+        for key in self.worker_list.keys():
+            if self.worker_list[key]['reducer'] == 'Free':
+                self.worker_list[key]['reducer'] = 'Occupied'
+                return self.worker_list[key]
         return None
 
     def getMapResultLocation(self, job_id):
@@ -116,7 +116,7 @@ class Master():
                         print "Start Reducer task"
                         ret = client.startReduce(task_dict)
                     if ret == 0:
-                        task.state == 'STARTING'
+                        task.state = 'STARTING'
                     else:
                         print "Start %s task on %s failed" % (type, worker["address"])
                         worker[type] = "Free"
@@ -258,7 +258,7 @@ class Master():
             for v in vaule:
                 s += v
             out_str += s
-        out_file = open(output_filename, 'w')
+        out_file = open(output_filename + '.txt', 'w')
         out_file.write(str(out_str))
         return
 
@@ -283,24 +283,21 @@ class Master():
         # remove worker from worker list
         del self.worker_list[workerStatus.worker_id]
         del self.worker_status_list[workerStatus.worker_id]
-        # if reducer down, clean this reducer task
-        if workerStatus.reducer_status is not None:
-            task = job.reduce_task_list[workerStatus.reducer_status.partition_id]
-            task.task_id = None
-            task.worker = None
-            task.state = 'NOT_ASSIGNED'
-            task.progress = '0'
+        # find all tasks on this worker and clean
+        for split_id, task in job.map_task_list.items():
+            if (task.worker is not None) and (task.worker['id'] == workerStatus.worker_id):
+                task.task_id = None
+                task.worker = None
+                task.state = 'NOT_ASSIGNED'
+                task.progress = '0'
+        for partition_id, task in job.reduce_task_list.items():
+            if (task.worker is not None) and (task.worker['id'] == workerStatus.worker_id):
+                task.task_id = None
+                task.worker = None
+                task.state = 'NOT_ASSIGNED'
+                task.progress = '0'
         if job is not None:
             self.assignTask("reducer", job.reduce_task_list)
-
-        # if mapper down, clean this mapper task
-        if workerStatus.mapper_status is not None:
-            task = job.map_task_list[workerStatus.mapper_status.split_id]
-            task.task_id = None
-            task.worker = None
-            task.state = 'NOT_ASSIGNED'
-            task.progress = '0'
-        if job is not None:
             self.assignTask('mapper', job.map_task_list)
 
     def heartBeat(self):

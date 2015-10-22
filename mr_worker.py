@@ -116,7 +116,7 @@ class Worker():
                 task.partition_id, task.task_id, len(task.partitions), time.asctime(time.localtime(time.time())))
                 return 0
             count+=1
-            print "reducer wait for input times: %d" %count
+            # print "reducer wait for input times: %d" %count
             gevent.sleep(5)
 
     def reducer(self, reduce_task):
@@ -151,8 +151,8 @@ class Worker():
         task.progress = 'Starting.'
 
         self.collectAllInputsForReducer(task)
-
-        engine.WordCountReduceExecute(task.partitions)
+        # print "input partitions: ",task.partitions
+        engine.WordCountReduceExecute(task.partitions, task.partition_id)
         # reducer.set_output_oder((job_for_reduces.keys()[0]) % 10)
         # for i in job_for_reduces.keys():
         #     keys = job_for_reduces[i].keys()
@@ -181,15 +181,16 @@ class Worker():
         if self.all_map_task_list.has_key(job_id):
             if self.all_map_task_list[job_id].has_key(split_id):
                 key = str(split_id) + str(partition_id)
-                print "Prepare get partition %s" %(key)
-                print "Now partition keys: ", self.all_map_task_list[job_id][split_id].partitions.keys()
+                # print "Prepare get partition %s" %(key)
+                # print "Now partition keys: ", self.all_map_task_list[job_id][split_id].partitions.keys()
                 return self.all_map_task_list[job_id][split_id].partitions[key]
         return None
 
     def getReducerResult(self, partition_id, outfile_base):
-        filename = outfile_base + "_" + partition_id + ".json"
+        filename = outfile_base + "_" + str(partition_id) + ".json"
         with open(filename, 'r') as f:
             data = json.load(f)
+            print "Get reduce file success, partition id:", partition_id
         return data
 
     def startRPCServer(self):
@@ -238,7 +239,7 @@ class Worker():
                 mapperTask = self.MapperTaskQueue.get()
                 # print "Create map thread: %s at %s" % (0, time.asctime(time.localtime(time.time())))
                 thread = gevent.spawn(self.mapper, mapperTask)
-                print "Create map thread: %s at %s" % (thread, time.asctime(time.localtime(time.time())))
+                print "Create map thread : key: %d at %s" % (mapperTask.split_id, time.asctime(time.localtime(time.time())))
             gevent.sleep(0)
 
     def ReducerManage(self):
@@ -247,7 +248,7 @@ class Worker():
                 reducerTask = self.ReducerTaskQueue.get()
                 # print "Create reduce thread: %s at %s" % (0, time.asctime(time.localtime(time.time())))
                 thread = gevent.spawn(self.reducer, reducerTask)
-                print "Create reduce thread: %s at %s" % (thread, time.asctime(time.localtime(time.time())))
+                print "Create reduce thread: key: %d at %s" % (reducerTask.partition_id, time.asctime(time.localtime(time.time())))
             gevent.sleep(0)
 
     def heartbeat(self):

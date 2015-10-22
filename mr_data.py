@@ -44,7 +44,7 @@ class Job():
         self.num_reducers = conf['num_reducers']
         self.infile = conf['infile']
         self.outfile = conf['outfile']
-        self.status = "INITIALIZING"
+        self.state = "INITIALIZING"
         self.progress = "0%"
         # create empty task list
         self.map_task_list = {}

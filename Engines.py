@@ -34,7 +34,7 @@ class WordCountEngine(Engine):
 
     def WordCountMapExecute(self,assigned_split,split_id):
 
-        mapper = self.create_map_instance(split_id) # todo need to replace 1 as split_# you get
+        mapper = self.create_map_instance(split_id)
         file_object = open(self.input_file)
         input = self.read_input(file_object,assigned_split)
         for j, v in enumerate(input):
@@ -48,25 +48,25 @@ class WordCountEngine(Engine):
         job_for_reduces= mapper.partition(keys,self.num_reducer)
         return job_for_reduces
 
-    def WordCountReduceExecute(self,job_for_reduces):
+    def WordCountReduceExecute(self,job_for_reduces,partition_id):
 
         # job_for_reduces = self.collect_jobs(job_list)
         reducer = self.create_reduce_instance()
-        reducer.set_output_oder((job_for_reduces.keys()[0])%10) # todo change (job_for_reduces.keys()[0]) to partionID
+        reducer.set_output_oder(partition_id)
         collect = {}
         for key in job_for_reduces.keys():
                 keys = job_for_reduces[key].keys()
                 for k in keys:
                     if k in collect:
-                        collect[reducer.output_order].append(job_for_reduces[key][k][0])
+                        collect[k].append(job_for_reduces[key][k][0])
                     else:
-                        collect[reducer.output_order]= job_for_reduces[key][k]
+                        collect[k]= job_for_reduces[key][k]
         keys = collect.keys()
         keys.sort()
         for k in keys:
             reducer.reduce(reducer.output_order,k,collect[k])
         reducer.write_Jason_result(self.output_base)
-        reducer.write_txt_result(self.output_base)
+        # reducer.write_txt_result(self.output_base)
 
 class HammingEngine(Engine):
 
@@ -104,12 +104,12 @@ class HammingEngine(Engine):
         #partion
         job_for_reduces= mapper.partition(keys,self.num_reducer)
 
-    def HammingReduceExecute(self,job_list):
+    def HammingReduceExecute(self,job_list,partition_id):
         #Reduce phase
         job_for_reduces = self.collect_jobs(job_list) # collect must contain {split_id : task}
         keys = job_for_reduces.keys()
         reducer = self.create_reduce_instance()
-        reducer.set_output_oder(keys[0]%10) #todo change to partionID
+        reducer.set_output_oder(partition_id)
 
         for k in keys:
             reducer.reduce(k,job_for_reduces.get(k))
@@ -141,12 +141,12 @@ class SortEngine(Engine):
 
         return job_for_reduces #todo store partition result
 
-    def SortReduceExecute(self,job_list): #need to give job list to reduce to collect job from map
+    def SortReduceExecute(self,job_list, partition_id): #need to give job list to reduce to collect job from map
         collect = {}
         job_for_reduces = self.collect_jobs(job_list)
         keys = job_for_reduces.keys()
         reducer = self.create_reduce_instance()
-        reducer.set_output_oder(keys[0]%10) #keys[0] partionID
+        reducer.set_output_oder(partition_id) #keys[0] partionID
         index = reducer.output_order
         for key in job_for_reduces.keys():
             if index in collect:
