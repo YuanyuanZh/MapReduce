@@ -1,7 +1,7 @@
 import hamming
 import json
 
-PATH = "./testoutput/"
+
 class Map(object):
 
     def __init__(self,split_id,err_pos = None):
@@ -102,12 +102,6 @@ class WordCountReduce(Reduce):
             count = count + int(v)
         self.emit(pm_order,k + ':' + str(count)+'\n')
 
-    def write_txt_result(self,output_base):
-        rst = self.get_result_list()
-        out_file = open(PATH+output_base+"_"+str(self.output_order),'w')
-        out_file.write(str(rst))
-        out_file.close()
-
 class SortMap(Map):
 
     def map(self, k, v):
@@ -160,13 +154,6 @@ class SortReduce(Reduce):
 
     def emit(self, pm_order,v):
         self.result_list[pm_order] = v
-
-
-    def write_txt_result(self,output_base):
-        rst = self.get_result_list()
-        out_file = open(PATH+output_base+"_"+str(self.output_order),'w')
-        out_file.write(str(rst))
-        out_file.close()
 
 class ham(Map):
 
@@ -247,7 +234,3 @@ class hammingReduce(Reduce):
             json.dump(rst, file,indent=4,sort_keys= True)
         file.close()
 
-    def write_txt_result(self,output_base):
-        rst = self.get_result_list()
-        out_file = open(output_base+"_"+str(self.output_order),'w')
-        out_file.write(str(rst))

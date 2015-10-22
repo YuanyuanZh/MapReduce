@@ -182,7 +182,7 @@ if __name__ == '__main__':
     split_size = sys.argv[2]
     num_reducer = sys.argv[3]
     in_filename = "./test/"+sys.argv[4]
-    output_base = sys.argv[5]
+    output_base = "./testoutput/"+sys.argv[5]
 
     if class_name == 'WordCount':
         engine = WordCountEngine(in_filename, split_size,class_name, num_reducer, output_base)
@@ -192,5 +192,5 @@ if __name__ == '__main__':
         engine = HammingEngine(in_filename, split_size,class_name, num_reducer, output_base)
     engine.execute()
 
-    collector = collect_data.Collect_data(output_base,class_name+'_result')
+    collector = collect_data.Collect_data(sys.argv[5],class_name+'_result')
     collector.collect()
