@@ -36,6 +36,8 @@ class Worker():
                 print "Create mapper failed: last mapper not finished. key: %s, task_id: %s  at %s" % (
                     task.split_id, task.task_id, time.asctime(time.localtime(time.time())))
                 return -1
+            else:
+                self.current_mapper.changeToFinish = False
         self.current_mapper = task
         # No this job, create it
         if self.all_map_task_list.has_key(task.job_id) == False:
@@ -60,8 +62,8 @@ class Worker():
         task.state = 'FINISH'
         task.progress = 'Finish mapping.'
         task.changeToFinish = True
-        print "Finish Mapper: key: %s, task_id: %s at %s" % (
-            task.split_id, task.task_id, time.asctime(time.localtime(time.time())))
+        print "Finish Mapper: key: %s, task_id: %s C_Key: %d at %s" % (
+            task.split_id, task.task_id,self.current_mapper.split_id,time.asctime(time.localtime(time.time())))
 
     def collectAllInputsForReducer(self, task):
         # get all input from other workers
@@ -211,8 +213,9 @@ class Worker():
                 mapperTask = self.MapperTaskQueue.get()
                 # print "Create map thread: %s at %s" % (0, time.asctime(time.localtime(time.time())))
                 thread = gevent.spawn(self.mapper, mapperTask)
-                print "Create map thread : key: %d at %s" % (
-                mapperTask.split_id, time.asctime(time.localtime(time.time())))
+                if self.current_mapper is not None:
+                    print "Create map thread : key: %d C_key: %d at %s" % (
+                    mapperTask.split_id, self.current_mapper.split_id, time.asctime(time.localtime(time.time())))
             gevent.sleep(0)
 
     def ReducerManage(self):
@@ -226,7 +229,10 @@ class Worker():
             gevent.sleep(0)
 
     def heartbeat(self):
+
         while True:
+            Local_current_mapper = self.current_mapper
+            Local_current_Reducer = self.current_reducer
             if self.current_mapper is not None:
                 status_mapper = MapperStatus(self.current_mapper.job_id, self.current_mapper.split_id,
                                              self.current_mapper.task_id, self.current_mapper.state,
@@ -257,22 +263,23 @@ class Worker():
             # print "send status"
             client = zerorpc.Client()
             client.connect('tcp://' + self.master_address)
-            print "Worker update status UPdate: worker_id: %s, ip: %s at %s" % (
-                    self.id, self.worker_address, time.asctime(time.localtime(time.time())))
+            if status.mapper_status is not None:
+                print "Worker update status UPdate: worker_id: %s, mapper key: %s at %s" % (
+                    self.id, status.mapper_status.split_id, time.asctime(time.localtime(time.time())))
             ret = client.updateWorkerStatus(status_dict)
             if ret != 0:
-                print "Worker update status failed: worker_id: %s, ip: %s at %s" % (
-                    self.id, self.worker_address, time.asctime(time.localtime(time.time())))
+                print "Worker update status failed: worker_id: %s, key: at %s" % (
+                    self.id, time.asctime(time.localtime(time.time())))
             else:
 
-                if self.current_mapper is not None:
-                    if self.current_mapper.changeToFinish == True:
-                        print "Worker update status Suc: worker_id: %s, ip: %s at %s" % (
-                        self.id, self.worker_address, time.asctime(time.localtime(time.time())))
-                        self.current_mapper.changeToFinish = False
-                if self.current_reducer is not None:
-                    if self.current_reducer.changeToFinish == True:
-                        self.current_reducer.changeToFinish = False
+                if Local_current_mapper is not None:
+                    if Local_current_mapper.changeToFinish == True:
+                        print "Worker update status Suc: worker_id: %s, key: %d C_key: %d at %s" % (
+                        self.id, status.mapper_status.split_id, self.current_mapper.split_id,time.asctime(time.localtime(time.time())))
+                        Local_current_mapper.changeToFinish = False
+                if Local_current_Reducer is not None:
+                    if Local_current_Reducer.changeToFinish == True:
+                        Local_current_Reducer.changeToFinish = False
             gevent.sleep(5)
 
     def run(self):

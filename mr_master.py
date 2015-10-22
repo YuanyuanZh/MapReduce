@@ -64,7 +64,7 @@ class Master():
         # self.worker_list[self.worker_id] = worker
         self.reportEvent('REGISTER_WORKER', worker)
         self.worker_status_list[self.worker_id] = WorkerStatus(self.worker_id, worker_address, "RUNNING", None, None)
-        print "Receive register worker: worker_id: %s, ip: %s at %s" % (
+        print "Worker %s ip: %s registers at %s" % (
             worker['id'], worker['address'], time.asctime(time.localtime(time.time())))
         return self.worker_id
 
@@ -122,7 +122,7 @@ class Master():
 
                     else:
                         task_dict = task.__dict__
-                        print "Start Reducer task"
+                        # print "Start Reducer task"
                         ret = client.startReduce(task_dict)
                     if ret == 0:
                         task.state = 'STARTING'
@@ -142,7 +142,7 @@ class Master():
             return False
 
     def jobScheduler(self):
-        print "enter scheduler : at %s" %time.asctime( time.localtime(time.time()) )
+        # print "enter scheduler : at %s" %time.asctime( time.localtime(time.time()) )
         job = None
         while True:
             while not self.jobs.empty():
@@ -168,27 +168,27 @@ class Master():
                 event = self.event_queue.get_nowait()
                 if event.type == 'MAPPER_FINISHED':
                     workerStatus = event.status
-                    print "Receive mapper finish event: key: %s, task_id: %s, worker_id: %s, ip: %s at %s" % (
-                        workerStatus.mapper_status.split_id, workerStatus.mapper_status.task_id, workerStatus.worker_id,
-                        workerStatus.worker_address, time.asctime(time.localtime(time.time())))
+                    # print "Receive mapper finish event: key: %s, task_id: %s, worker_id: %s, ip: %s at %s" % (
+                    #     workerStatus.mapper_status.split_id, workerStatus.mapper_status.task_id, workerStatus.worker_id,
+                    #     workerStatus.worker_address, time.asctime(time.localtime(time.time())))
                     self.finishMapper(event.status, job.map_task_list)
                 if event.type == 'REDUCER_FINISHED':
                     workerStatus = event.status
-                    print "Receive reducer finish event: key: %s, task_id: %s, worker_id: %s, ip: %s at %s" % (
-                        workerStatus.mapper_status.split_id, workerStatus.mapper_status.task_id, workerStatus.worker_id,
-                        workerStatus.worker_address, time.asctime(time.localtime(time.time())))
+                    # print "Receive reducer finish event: key: %s, task_id: %s, worker_id: %s, ip: %s at %s" % (
+                    #     workerStatus.mapper_status.split_id, workerStatus.mapper_status.task_id, workerStatus.worker_id,
+                    #     workerStatus.worker_address, time.asctime(time.localtime(time.time())))
                     self.finishReducer(event.status, job.reduce_task_list)
                 if event.type == 'WORKER_DOWN':
                     workerStatus = event.status
-                    print "Receive worker down event: worker_id: %s, ip: %s at %s" % (
+                    print "Warning: worker down: worker_id: %s, ip: %s at %s" % (
                         workerStatus.worker_id,
                         workerStatus.worker_address, time.asctime(time.localtime(time.time())))
                     self.processWorkerDown(event.status, job)
                 if event.type == 'REGISTER_WORKER':
                     worker = event.status
                     self.worker_list[worker['id']] = worker
-                    print "Register Worker: worker_id: %s, ip: %s at %s" % (
-                        worker['id'], worker['address'], time.asctime(time.localtime(time.time())))
+                    # print "Register Worker: worker_id: %s, ip: %s at %s" % (
+                    #     worker['id'], worker['address'], time.asctime(time.localtime(time.time())))
                     if job is not None:
                         self.assignTask('mapper', job.map_task_list)
                         self.assignTask('reducer', job.reduce_task_list)
@@ -209,9 +209,12 @@ class Master():
         task.state = workerStatus.mapper_status.state
         task.progress = workerStatus.mapper_status.progress
         # update worker assign state
-        print "Finish Mapper: key: %s, task_id: %s, worker_id: %s, ip: %s at %s" % (
-        task.split_id, task.task_id, task.worker['id'], task.worker['address'],
-        time.asctime(time.localtime(time.time())))
+        # print "Finish Mapper: key: %s, task_id: %s, worker_id: %s, ip: %s at %s" % (
+        # task.split_id, task.task_id, task.worker['id'], task.worker['address'],
+        # time.asctime(time.localtime(time.time())))
+        print "Finish Mapper: key: %s,  worker_id: %s, at %s" % (
+        task.split_id, task.worker['id'], time.asctime(time.localtime(time.time())))
+
         self.worker_list[workerStatus.worker_id]['mapper'] = 'Free'
         # assgin new mapper task to this slot
         self.assignTask('mapper', mapper_list)
@@ -235,13 +238,16 @@ class Master():
             #     #change job status
             #     self.processing_jobs[task.job_id].state = 'COMPLETE'
             #     self.processing_jobs[task.job_id].progress = '100%'
-        print "Finish Reducer: key: %s, task_id: %s, worker_id: %s, ip: %s at %s" % (
-            task.partition_id, task.task_id, task.worker['id'], task.worker['address'],
+        # print "Finish Reducer: key: %s, task_id: %s, worker_id: %s, ip: %s at %s" % (
+        #     task.partition_id, task.task_id, task.worker['id'], task.worker['address'],
+        #     time.asctime(time.localtime(time.time())))
+        print "Finish Reducer: key: %s, worker_id: %s, at %s" % (
+            task.partition_id, task.worker['id'],
             time.asctime(time.localtime(time.time())))
         return
 
     def collectJobResult(self):
-        print "enter collect : at %s" %time.asctime( time.localtime(time.time()) )
+        # print "enter collect : at %s" %time.asctime( time.localtime(time.time()) )
         while True:
             while not self.collect_queue.empty():
                 reducer_list = self.collect_queue.get_nowait()
@@ -288,24 +294,25 @@ class Master():
         return 0
 
     def processWorkerDown(self, workerStatus, job):
-        print "Processing worker down: key: worker_id: %s, ip: %s at %s" % (
-            workerStatus.worker_id, workerStatus.worker_address, time.asctime(time.localtime(time.time())))
+        # print "Processing worker down: key: worker_id: %s, ip: %s at %s" % (
+        #     workerStatus.worker_id, workerStatus.worker_address, time.asctime(time.localtime(time.time())))
         # remove worker from worker list
         del self.worker_list[workerStatus.worker_id]
         del self.worker_status_list[workerStatus.worker_id]
         # find all tasks on this worker and clean
-        for split_id, task in job.map_task_list.items():
-            if (task.worker is not None) and (task.worker['id'] == workerStatus.worker_id):
-                task.task_id = None
-                task.worker = None
-                task.state = 'NOT_ASSIGNED'
-                task.progress = '0'
-        for partition_id, task in job.reduce_task_list.items():
-            if (task.worker is not None) and (task.worker['id'] == workerStatus.worker_id):
-                task.task_id = None
-                task.worker = None
-                task.state = 'NOT_ASSIGNED'
-                task.progress = '0'
+        if job is not None:
+            for split_id, task in job.map_task_list.items():
+                if (task.worker is not None) and (task.worker['id'] == workerStatus.worker_id):
+                    task.task_id = None
+                    task.worker = None
+                    task.state = 'NOT_ASSIGNED'
+                    task.progress = '0'
+            for partition_id, task in job.reduce_task_list.items():
+                if (task.worker is not None) and (task.worker['id'] == workerStatus.worker_id):
+                    task.task_id = None
+                    task.worker = None
+                    task.state = 'NOT_ASSIGNED'
+                    task.progress = '0'
         # del self.worker_list[workerStatus.worker_id]
         # del self.worker_status_list[workerStatus.worker_id]
         if job is not None:
@@ -315,7 +322,7 @@ class Master():
             print " Job is none"
 
     def heartBeat(self):
-        print "enter heartbeat : at %s" %time.asctime( time.localtime(time.time()) )
+        # print "enter heartbeat : at %s" %time.asctime( time.localtime(time.time()) )
         while True:
             for worker_id in self.worker_status_list.keys():
                 #
@@ -325,9 +332,9 @@ class Master():
                     if workerStatus.timeout_times == 3:
                         workerStatus.worker_status = 'DOWN'
                         self.reportEvent('WORKER_DOWN', workerStatus)
-                        print "Find worker down: worker_id: %s, ip: %s at %s" % (
-                            workerStatus.worker_id, workerStatus.worker_address,
-                            time.asctime(time.localtime(time.time())))
+                        # print "Find worker down: worker_id: %s, ip: %s at %s" % (
+                        #     workerStatus.worker_id, workerStatus.worker_address,
+                        #     time.asctime(time.localtime(time.time())))
                 else:
                     workerStatus.num_heartbeat = workerStatus.num_callback
                     workerStatus.timeout_times = 0
@@ -360,7 +367,7 @@ class Master():
             if workerStatus.mapper_status is not None:
                 # check task state
                 if workerStatus.mapper_status.changeToFinish == True:
-                    print "Mapper finish key: %d worker : %d" %(workerStatus.mapper_status.split_id, workerStatus.worker_id)
+                    # print "Mapper finish key: %d worker : %d" %(workerStatus.mapper_status.split_id, workerStatus.worker_id)
                     self.reportEvent('MAPPER_FINISHED', workerStatus)
 
             if workerStatus.reducer_status is not None:
@@ -383,14 +390,14 @@ class Master():
         # gevent.joinall([gevent.spawn(self.jobScheduler()), gevent.spawn(self.heartBeat()), gevent.spawn(self.collectJobResult())])
 
     def rpcServer(self):
-        print "enter rpc"
+        # print "enter rpc"
         rpc_server = zerorpc.Server(self)
         addr = "tcp://0.0.0.0:" + self.port
-        print "address: %s", addr
+        # print "address: %s", addr
         rpc_server.bind(addr)
-        print "rpc run 1"
+        # print "rpc run 1"
         rpc_server.run()
-        print "rpc run"
+        # print "rpc run"
 
 if __name__ == '__main__':
     port = sys.argv[1]
