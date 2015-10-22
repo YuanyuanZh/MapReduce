@@ -9,7 +9,7 @@ from mr_data import *
 from Engines import *
 import time
 import json
-
+from gevent.queue import Queue
 
 class Worker():
     def __init__(self, master_address, worker_address=None):
@@ -25,6 +25,8 @@ class Worker():
         self.all_reduce_task_list = {}
         self.current_mapper = None
         self.current_reducer = None
+        self.MapperTaskQueue = Queue()
+        self.ReducerTaskQueue = Queue()
 
     def mapper(self, map_task):
         task = map_task
@@ -88,6 +90,7 @@ class Worker():
 
     def collectAllInputsForReducer(self, task):
         # get all input from other workers
+        count = 0
         while True:
             client1 = zerorpc.Client()
             client1.connect('tcp://' + self.master_address)
@@ -97,7 +100,7 @@ class Worker():
                 # if didn't has that input, get input from mapper; else ignore;
                 key = str(split_id) + str(task.partition_id)
                 if task.partitions.has_key(key) == False:
-                    client = zerorpc.Client()
+                    client = zerorpc.Client(timeout=300)
                     client.connect('tcp://' + worker['address'])
                     partition = client.getPartition(task.job_id, split_id, task.partition_id)
                     if partition is not None:
@@ -112,6 +115,8 @@ class Worker():
                 print "Get all partitions for reducer: key: %s, task_id: %s, length: %d at %s" % (
                 task.partition_id, task.task_id, len(task.partitions), time.asctime(time.localtime(time.time())))
                 return 0
+            count+=1
+            print "reducer wait for input times: %d" %count
             gevent.sleep(5)
 
     def reducer(self, reduce_task):
@@ -176,6 +181,8 @@ class Worker():
         if self.all_map_task_list.has_key(job_id):
             if self.all_map_task_list[job_id].has_key(split_id):
                 key = str(split_id) + str(partition_id)
+                print "Prepare get partition %s" %(key)
+                print "Now partition keys: ", self.all_map_task_list[job_id][split_id].partitions.keys()
                 return self.all_map_task_list[job_id][split_id].partitions[key]
         return None
 
@@ -212,16 +219,36 @@ class Worker():
         return task
 
     def startMap(self, task_dict):
-        print "Begin create map thread: at %s" % (time.asctime(time.localtime(time.time())))
+        # print "Begin create map thread: at %s" % (time.asctime(time.localtime(time.time())))
         task = self.convertDictToMapTask(task_dict)
-        thread = gevent.spawn(self.mapper, task)
-        print "Create map thread: %s at %s" % (thread, time.asctime(time.localtime(time.time())))
+        # thread = gevent.spawn(self.mapper, task)
+        # print "Create map thread: %s at %s" % (thread, time.asctime(time.localtime(time.time())))
+        self.MapperTaskQueue.put(task)
         return 0
 
     def startReduce(self, task_dict):
         task = self.convertDictToReduceTask(task_dict)
-        gevent.spawn(self.reducer(task))
+        self.ReducerTaskQueue.put(task)
+        # gevent.spawn(self.reducer(task))
         return 0
+
+    def MapperManage(self):
+        while True:
+            while not self.MapperTaskQueue.empty():
+                mapperTask = self.MapperTaskQueue.get()
+                # print "Create map thread: %s at %s" % (0, time.asctime(time.localtime(time.time())))
+                thread = gevent.spawn(self.mapper, mapperTask)
+                print "Create map thread: %s at %s" % (thread, time.asctime(time.localtime(time.time())))
+            gevent.sleep(0)
+
+    def ReducerManage(self):
+        while True:
+            while not self.ReducerTaskQueue.empty():
+                reducerTask = self.ReducerTaskQueue.get()
+                # print "Create reduce thread: %s at %s" % (0, time.asctime(time.localtime(time.time())))
+                thread = gevent.spawn(self.reducer, reducerTask)
+                print "Create reduce thread: %s at %s" % (thread, time.asctime(time.localtime(time.time())))
+            gevent.sleep(0)
 
     def heartbeat(self):
         while True:
@@ -268,13 +295,16 @@ class Worker():
                         self.current_reducer.changeToFinish = False
             gevent.sleep(5)
 
+
     def run(self):
         self.register()
         # self.startRPCServer()
         thread1 = gevent.spawn(self.heartbeat)
+        thread2 = gevent.spawn(self.MapperManage)
+        thread3 = gevent.spawn(self.ReducerManage)
+        thread4 = gevent.spawn(self.startRPCServer)
         # self.startRPCServer()
-        gevent.joinall([thread1])
-        self.startRPCServer()
+        gevent.joinall([thread1,thread3,thread2,thread4])
 
 
 if __name__ == '__main__':

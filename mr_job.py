@@ -6,11 +6,11 @@ import gevent
 import time
 
 class JobClient(object):
-    def __init__(self, master_addr,classname,split_size,num_redurcers,infile,outfile):
+    def __init__(self, master_addr,classname,split_size,num_reducers,infile,outfile):
         self.master_addr = master_addr
         self.classname = classname
-        self.split_size = split_size
-        self.num_redurcers = num_redurcers
+        self.split_size = int(split_size)
+        self.num_reducers = int(num_reducers)
         self.infile = infile
         self.outfile = outfile
 
@@ -36,9 +36,9 @@ class JobClient(object):
         }
         print "Get Job id: %d at %s" %(job_id,time.asctime( time.localtime(time.time()) ))
         #check input and output
-        e = os.path.exists(self.infile)
-        if e == False:
-            raise IOError,"No input file"
+        # e = os.path.exists(self.infile)
+        # if e == False:
+        #     raise IOError,"No input file"
         jobClient.submitJob(conf)
         return job_id
 

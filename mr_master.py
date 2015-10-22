@@ -7,6 +7,7 @@ import random
 from gevent.lock import *
 import time
 import input_split
+import os
 
 
 class Master():
@@ -36,6 +37,9 @@ class Master():
         # create job
         inputFile = self.data_dir + '/' + conf['infile']
         outputFile = self.data_dir + '/' + conf['outfile']
+        e = os.path.exists(inputFile)
+        if e == False:
+            raise IOError,"No input file"
         splits = self.splitInput(inputFile, conf['split_size'], conf['className'])
         conf['infile'] = inputFile
         conf['outfile'] = outputFile
@@ -109,6 +113,7 @@ class Master():
                         ret = client.startMap(task_dict)
                     else:
                         task_dict = task.__dict__
+                        print "Start Reducer task"
                         ret = client.startReduce(task_dict)
                     if ret == 0:
                         task.state == 'STARTING'
@@ -146,7 +151,7 @@ class Master():
 
                     # assign tasks in creating job
                     self.assignTask('mapper', job.map_task_list)
-                    self.assignTask('reducer', job.map_task_list)
+                    self.assignTask('reducer', job.reduce_task_list)
                     self.processing_jobs[job.jobId].state = 'PROCESSING'
                     self.processing_jobs[job.jobId].progress = '0%'
                     # while job.state != 'COMPLETE':
@@ -177,7 +182,7 @@ class Master():
                         worker['id'], worker['address'], time.asctime(time.localtime(time.time())))
                     if job is not None:
                         self.assignTask('mapper', job.map_task_list)
-                        self.assignTask('reducer', job.map_task_list)
+                        self.assignTask('reducer', job.reduce_task_list)
                 if event.type == 'COLLECT_SUCCESS':
                     print "Receive job collect success event: job_id: %s at %s" % (
                         job.jobId, time.asctime(time.localtime(time.time())))
@@ -286,7 +291,7 @@ class Master():
             task.state = 'NOT_ASSIGNED'
             task.progress = '0'
         if job is not None:
-            self.assignTask("mapper", job.reduce_task_list)
+            self.assignTask("reducer", job.reduce_task_list)
 
         # if mapper down, clean this mapper task
         if workerStatus.mapper_status is not None:
@@ -296,7 +301,7 @@ class Master():
             task.state = 'NOT_ASSIGNED'
             task.progress = '0'
         if job is not None:
-            self.assignTask('reducer', job.map_task_list)
+            self.assignTask('mapper', job.map_task_list)
 
     def heartBeat(self):
         print "enter heartbeat : at %s" %time.asctime( time.localtime(time.time()) )
@@ -305,9 +310,6 @@ class Master():
                 #
                 workerStatus = self.worker_status_list[worker_id]
                 if workerStatus.num_heartbeat == workerStatus.num_callback:
-                    print "Find worker down: worker_id: %s, ip: %s %s at %s" % (
-                            workerStatus.worker_id, workerStatus.worker_address,workerStatus.timeout_times,
-                            time.asctime(time.localtime(time.time())))
                     workerStatus.timeout_times += 1
                     if workerStatus.timeout_times == 3:
                         workerStatus.worker_status = 'DOWN'
@@ -340,7 +342,7 @@ class Master():
 
     def updateWorkerStatus(self, workerStatus_dict):
         workerStatus = self.convertDictToWorkerStatus(workerStatus_dict)
-        print " call back"
+        # print " call back"
         # check status
         origin_status = self.worker_status_list[workerStatus.worker_id]
         if origin_status.worker_status != 'Down':
@@ -348,7 +350,7 @@ class Master():
                 # check task state
                 if workerStatus.mapper_status.changeToFinish == True:
                     self.reportEvent('MAPPER_FINISHED', workerStatus)
-            if workerStatus.mapper_status is not None:
+            if workerStatus.reducer_status is not None:
                 if workerStatus.reducer_status.changeToFinish == True:
                     self.reportEvent('REDUCER_FINISHED', workerStatus)
         self.worker_status_list[workerStatus.worker_id].mapper_status = workerStatus.mapper_status

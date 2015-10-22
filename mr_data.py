@@ -92,6 +92,8 @@ class ReduceTask(Task):
                  num_reducers):
         Task.__init__(self, job_id, task_id, className, worker, infile, outfile, num_reducers)
         self.partition_id = partition_id
-        if partitions is not None:
+        if partitions is None:
             self.partitions = {}
+        else:
+            self.partitions = partitions
         self.num_mappers = num_mappers
