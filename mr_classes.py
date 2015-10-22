@@ -53,7 +53,7 @@ class Reduce(object):
             out_put[out_put_key] += rst.get(key)
         out_put[out_put_key].sort()
         out_file_name = output_base+"_"+str(self.output_order)+".json"
-        with open(PATH+out_file_name, "w") as file:
+        with open(out_file_name, "w") as file:
             json.dump(out_put, file,indent=4,sort_keys= True)
         file.close()
 
