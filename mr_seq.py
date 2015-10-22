@@ -59,7 +59,7 @@ class WordCountEngine(Engine):
             jobs = {}
             collect = {}
             for k in num_maps:
-                index = str(j)+str(k)
+                index = str(k)+str(j)
                 jobs[index]=(job_for_reduces.get(k)).get(index)
 
             for key in jobs.keys():
@@ -106,7 +106,7 @@ class SortEngine(Engine):
             jobs = {}
             collect = {}
             for k in num_maps:
-                index = str(j)+str(k)
+                index = str(k)+str(j)
                 jobs[index]=(job_for_reduces.get(k)).get(index)
 
             for key in jobs.keys():

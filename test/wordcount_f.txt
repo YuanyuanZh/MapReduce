@@ -1,0 +1,25 @@
+MapReduce is the heart of Hadoop It is this programming paradigm that allows for massive scalability across hundreds
+or thousands of servers in a Hadoop cluster. The MapReduce concept is fairly simple to understand for those who are
+familiar with clustered scale-out data processing solutions For people new to this topic it can be somewhat difficult
+to grasp because it is not typically something people have been exposed to previously. If you new to Hadoop MapReduce
+jobs don not worry we going to describe it in a way that gets you up to speed quickly The term MapReduce actually refers
+to two separate and distinct tasks that Hadoop programs perform. The first is the map job, which takes a set of data and
+converts it into another set of data, where individual elements are broken down into tuples key/value pairs. The reduce
+job takes the output from a map as input and combines those data tuples into a smaller set of tuples. As the sequence of
+the name MapReduce implies the reduce job is always performed after the map job.
+MapReduce is the heart of Hadoop It is this programming paradigm that allows for massive scalability across hundreds
+or thousands of servers in a Hadoop cluster. The MapReduce concept is fairly simple to understand for those who are
+familiar with clustered scale-out data processing solutions For people new to this topic it can be somewhat difficult
+to grasp because it is not typically something people have been exposed to previously. If you new to Hadoop MapReduce
+jobs don not worry we going to describe it in a way that gets you up to speed quickly The term MapReduce actually refers
+to two separate and distinct tasks that Hadoop programs perform. The first is the map job, which takes a set of data and
+converts it into another set of data, where individual elements are broken down into tuples key/value pairs. The reduce
+job takes the output from a map as input and combines those data tuples into a smaller set of tuples. As the sequence of
+the name MapReduce implies the reduce job is always performed after the map job.
+When failures occur in distributed system some system needs to reorganize to continue operation This paper presents
+two election and reorganization algorithms for two failure environments Seven basic assumptions all nodes cooperate
+When failures occur in distributed system some system needs to reorganize to continue operation This paper presents
+two election and reorganization algorithms for two failure environments Seven basic assumptions all nodes cooperate
+starting with a lowercase letter When failures occur in distributed system some system needs to reorganize to continue
+operation This paper presents two election and reorganization algorithms for two failure environments Seven basic
+assumptions all nodes cooperate software has no bug communications subsystems do not spontaneously generate messages
